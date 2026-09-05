@@ -2060,8 +2060,16 @@ html:not(.dark) .dropdown-item.active {
 }
 
 /* ============================================================
-   搜索按钮（桌面/移动/竖向三处搜索框左侧的放大镜，点击触发搜索）
+   搜索按钮（桌面/移动/竖向三处搜索框右侧的放大镜，点击触发搜索）
    ============================================================ */
+/* 隐藏浏览器原生的 search 清除按钮(叉)，避免与右侧放大镜重叠 */
+.search-input-target::-webkit-search-cancel-button,
+.search-input-target::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
 .search-trigger-btn {
   display: inline-flex;
   align-items: center;

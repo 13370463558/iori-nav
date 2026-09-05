@@ -331,8 +331,8 @@ export async function onRequest(context) {
       <div class="home-search-shell relative max-w-xl mx-auto">
         ${searchEngineOptions}
         <div class="home-search-field relative">
-          <input type="search" placeholder="搜索书签..." class="search-input-target w-full pl-12 pr-4 py-3.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
-          <button type="button" id="verticalSearchTrigger" class="search-trigger-btn absolute left-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
+          <input type="search" placeholder="搜索书签..." class="search-input-target w-full pl-4 pr-12 py-3.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
+          <button type="button" id="verticalSearchTrigger" class="search-trigger-btn absolute right-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </button>
         </div>
@@ -347,8 +347,8 @@ export async function onRequest(context) {
       <div class="home-search-shell relative max-w-xl mx-auto ${categoryPosition === 'below_search' ? 'mb-8' : ''}">
         ${searchEngineOptions}
         <div class="home-search-field relative">
-          <input id="headerSearchInput" type="search" placeholder="搜索书签..." class="search-input-target w-full pl-12 pr-4 py-3.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
-          <button type="button" id="desktopSearchTrigger" class="search-trigger-btn absolute left-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
+          <input id="headerSearchInput" type="search" placeholder="搜索书签..." class="search-input-target w-full pl-4 pr-12 py-3.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
+          <button type="button" id="desktopSearchTrigger" class="search-trigger-btn absolute right-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </button>
         </div>
@@ -373,8 +373,8 @@ export async function onRequest(context) {
       <div class="home-search-shell relative max-w-xl mx-auto">
         ${searchEngineOptions}
         <div class="home-search-field relative">
-          <input type="search" placeholder="搜索书签..." class="search-input-target w-full pl-12 pr-4 py-2.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
-          <button type="button" id="mobileSearchTrigger" class="search-trigger-btn absolute left-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
+          <input type="search" placeholder="搜索书签..." class="search-input-target w-full pl-4 pr-12 py-2.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
+          <button type="button" id="mobileSearchTrigger" class="search-trigger-btn absolute right-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </button>
         </div>
