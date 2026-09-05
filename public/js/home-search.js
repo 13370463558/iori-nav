@@ -180,8 +180,8 @@
       });
     });
 
-    // 搜索按钮（桌面/移动/竖向三种搜索框）
-    document.querySelectorAll('.search-submit-btn').forEach(btn => {
+    // 搜索按钮（桌面/移动/竖向三种搜索框：左侧放大镜 + 右侧按钮）
+    document.querySelectorAll('.search-submit-btn, .search-trigger-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();

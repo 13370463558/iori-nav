@@ -26,6 +26,8 @@
       hideLinksSwitch: document.getElementById('hideLinksSwitch'),
       hideCategorySwitch: document.getElementById('hideCategorySwitch'),
       hideAdminSwitch: document.getElementById('hideAdminSwitch'),
+      hideSidebarSwitch: document.getElementById('hideSidebarSwitch'),
+      hideFooterButtonsSwitch: document.getElementById('hideFooterButtonsSwitch'),
       frostedGlassSwitch: document.getElementById('frostedGlassSwitch'),
       frostedGlassIntensityRange: document.getElementById('frostedGlassIntensity'),
       frostedGlassIntensityValue: document.getElementById('frostedGlassIntensityValue'),
@@ -233,6 +235,8 @@
     currentSettings.layout_hide_links = !!refs.hideLinksSwitch?.checked;
     currentSettings.layout_hide_category = !!refs.hideCategorySwitch?.checked;
     currentSettings.home_hide_admin = !!refs.hideAdminSwitch?.checked;
+    currentSettings.home_hide_sidebar = !!refs.hideSidebarSwitch?.checked;
+    currentSettings.home_hide_footer_buttons = !!refs.hideFooterButtonsSwitch?.checked;
     currentSettings.layout_hide_title = !!refs.hideTitleSwitch?.checked;
     currentSettings.home_title_size = refs.homeTitleSizeInput?.value.trim() || '';
     currentSettings.home_title_color = refs.homeTitleColorInput?.value.trim() || '';
@@ -396,6 +400,8 @@
     setChecked(refs.hideLinksSwitch, currentSettings.layout_hide_links);
     setChecked(refs.hideCategorySwitch, currentSettings.layout_hide_category);
     setChecked(refs.hideAdminSwitch, currentSettings.home_hide_admin);
+    setChecked(refs.hideSidebarSwitch, currentSettings.home_hide_sidebar);
+    setChecked(refs.hideFooterButtonsSwitch, currentSettings.home_hide_footer_buttons);
     setChecked(refs.hideTitleSwitch, currentSettings.layout_hide_title);
     setValue(refs.homeTitleSizeInput, currentSettings.home_title_size || '36');
     setColorInputs(refs.homeTitleColorInput, refs.homeTitleColorPicker, currentSettings.home_title_color || '#ffffff');

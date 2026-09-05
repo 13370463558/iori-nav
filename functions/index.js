@@ -332,7 +332,9 @@ export async function onRequest(context) {
         ${searchEngineOptions}
         <div class="home-search-field relative">
           <input type="search" placeholder="搜索书签..." class="search-input-target w-full pl-12 pr-12 py-3.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
-          <svg xmlns="http://www.w3.org/2000/svg" class="home-search-icon h-6 w-6 absolute left-4 top-3.5 ${searchIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <button type="button" id="verticalSearchTrigger" class="search-trigger-btn absolute left-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </button>
           <button type="button" id="verticalSearchBtn" class="search-submit-btn absolute right-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </button>
@@ -349,7 +351,9 @@ export async function onRequest(context) {
         ${searchEngineOptions}
         <div class="home-search-field relative">
           <input id="headerSearchInput" type="search" placeholder="搜索书签..." class="search-input-target w-full pl-12 pr-12 py-3.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
-          <svg xmlns="http://www.w3.org/2000/svg" class="home-search-icon h-6 w-6 absolute left-4 top-3.5 ${searchIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <button type="button" id="desktopSearchTrigger" class="search-trigger-btn absolute left-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </button>
           <button type="button" id="desktopSearchBtn" class="search-submit-btn absolute right-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </button>
@@ -376,7 +380,9 @@ export async function onRequest(context) {
         ${searchEngineOptions}
         <div class="home-search-field relative">
           <input type="search" placeholder="搜索书签..." class="search-input-target w-full pl-12 pr-12 py-2.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
-          <svg xmlns="http://www.w3.org/2000/svg" class="home-search-icon h-5 w-5 absolute left-4 top-2.5 ${searchIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <button type="button" id="mobileSearchTrigger" class="search-trigger-btn absolute left-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </button>
           <button type="button" id="mobileSearchBtn" class="search-submit-btn absolute right-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </button>
@@ -390,26 +396,47 @@ export async function onRequest(context) {
   let sidebarToggleClass = '';
   let mobileToggleVisibilityClass = 'lg:hidden';
   let adminIconHtml = '';
+  // footer 三个图标按钮：主题切换 / Github / 后台管理（只显示图标，不显示文字）
   const themeIconHtml = `
-    <button id="themeToggleBtn" class="footer-theme-btn" title="切换主题">
+    <button id="themeToggleBtn" class="footer-icon-btn" title="切换主题" aria-label="切换主题">
       <svg id="themeIconSun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="block dark:hidden"><circle cx="12" cy="12" r="5"></circle><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path></svg>
       <svg id="themeIconMoon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden dark:block"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-      <span id="themeToggleLabel">切换主题</span>
     </button>`;
+
+  const githubFooterIcon = `
+    <a href="https://slink.661388.xyz/iori-nav" target="_blank" class="footer-icon-btn" title="Github" aria-label="Github">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path><path d="M9 18c-4.51 2-5-2-7-2"></path></svg>
+    </a>`;
+
+  const adminFooterIcon = `
+    <a href="/admin" target="_blank" class="footer-icon-btn" title="后台管理" aria-label="后台管理">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M7 18a5 5 0 0 1 10 0"/></svg>
+    </a>`;
+
+  // footer 按钮顺序：模式切换 → Github → 管理
+  // home_hide_footer_buttons 为 true 时整个按钮组隐藏
+  const footerButtonsHtml = S.home_hide_footer_buttons
+    ? ''
+    : `${themeIconHtml}${githubFooterIcon}${S.home_hide_admin ? '' : adminFooterIcon}`;
 
   let headerContent = verticalHeaderContent;
 
   if (isHorizontalCategoryLayout) {
-    sidebarClass = 'min-[550px]:hidden';
-    mainClass = '';
-    sidebarToggleClass = '!hidden';
-    mobileToggleVisibilityClass = 'min-[550px]:hidden';
+    // home_hide_sidebar 为 true 时：桌面/移动都隐藏侧边栏与汉堡按钮
+    if (S.home_hide_sidebar) {
+      sidebarClass = 'hidden';
+      mainClass = '';
+      sidebarToggleClass = '!hidden';
+      mobileToggleVisibilityClass = '!hidden';
+    } else {
+      sidebarClass = 'min-[550px]:hidden';
+      mainClass = '';
+      sidebarToggleClass = '!hidden';
+      mobileToggleVisibilityClass = 'min-[550px]:hidden';
+    }
 
     if (!S.home_hide_admin) {
-      adminIconHtml = `
-        <a href="/admin" target="_blank" class="top-action-icon admin-action-icon" title="后台管理">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M7 18a5 5 0 0 1 10 0"/></svg>
-        </a>`;
+      adminIconHtml = adminFooterIcon;
     }
 
     headerContent = `
@@ -417,7 +444,8 @@ export async function onRequest(context) {
       <div class="hidden min-[550px]:block">${horizontalHeaderContent}</div>`;
   }
 
-  const topRightActionsHtml = `<div class="fixed top-4 right-4 z-50 flex items-center gap-3">${adminIconHtml}</div>`;
+  // 右上角不再放任何按钮（主题/管理都移到 footer）
+  const topRightActionsHtml = ``;
   const leftTopActionHtml = `
     <div class="fixed top-4 left-4 z-50 ${mobileToggleVisibilityClass}">
       <button id="sidebarToggle" class="p-2 rounded-lg bg-white dark:bg-gray-800 shadow-md hover:bg-gray-100 dark:hover:bg-gray-700">
@@ -598,7 +626,7 @@ export async function onRequest(context) {
     'CANONICAL_URL': escapeHTML(canonicalUrl),
     'OG_IMAGE_URL': escapeHTML(ogImageUrl),
     'FOOTER_TEXT': escapeHTML(footerText),
-    'FOOTER_THEME_BTN': themeIconHtml,
+    'FOOTER_BUTTONS': footerButtonsHtml,
     'CATALOG_EXISTS': catalogExists ? 'true' : 'false',
     'CATALOG_LINKS': catalogLinkMarkup,
     'SUBMISSION_CLASS': submissionClass,

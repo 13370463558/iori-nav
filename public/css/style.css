@@ -956,7 +956,7 @@ html.dark .site-card.style-3:not(.frosted-glass-effect) .site-title {
   
   /* Default Inactive - 与 .nav-btn.inactive 相同：白字 + 半透明白底 */
   background-color: rgba(255, 255, 255, 0.15);
-  color: white;
+  color: white !important;
   backdrop-filter: blur(4px);
   border-bottom: 1px solid transparent; /* Reset old style */
 }
@@ -977,9 +977,9 @@ html.dark .site-card.style-3:not(.frosted-glass-effect) .site-title {
 
 /* Custom Wallpaper Mode */
 .custom-wallpaper .search-engine-option {
-  background-color: rgba(255, 255, 255, 0.7);
-  color: #374151;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  background-color: rgba(255, 255, 255, 0.35);
+  color: white !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.08);
 }
 .custom-wallpaper .search-engine-option:hover {
   background-color: white;
@@ -990,7 +990,6 @@ html.dark .site-card.style-3:not(.frosted-glass-effect) .site-title {
   color: white;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
-
 /* Dark Mode - 与分类按钮一致：文字保持白色可读 */
 .dark .search-engine-option {
   background-color: rgba(255, 255, 255, 0.12);
@@ -2076,7 +2075,7 @@ html:not(.dark) .dropdown-item.active {
 }
 
 /* ============================================================
-   搜索按钮（桌面/移动/竖向三处搜索框右侧的放大镜按钮）
+   搜索按钮（桌面/移动/竖向三处搜索框的放大镜按钮）
    ============================================================ */
 .search-submit-btn {
   display: inline-flex;
@@ -2091,12 +2090,33 @@ html:not(.dark) .dropdown-item.active {
   background: rgba(255, 255, 255, 0.7);
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   transition: all 0.2s ease;
+  z-index: 2;
 }
 
 .search-submit-btn:hover {
   background: white;
   color: #2563eb;
   transform: translateY(-50%) scale(1.05);
+}
+
+/* 左侧放大镜触发按钮（点击同样触发搜索） */
+.search-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: inherit;
+  transition: color 0.2s ease;
+  z-index: 2;
+}
+
+.search-trigger-btn:hover {
+  color: #2563eb;
 }
 
 .dark .search-submit-btn {
@@ -2110,49 +2130,49 @@ html:not(.dark) .dropdown-item.active {
 }
 
 /* ============================================================
-   Footer 主题切换按钮（页面最下方）
+   Footer 图标按钮（主题切换 / Github / 后台管理，页面最下方）
    ============================================================ */
-.footer-theme-btn {
+.footer-icon-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.75rem;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
   border-radius: 9999px;
   border: 1px solid transparent;
   background: rgba(255, 255, 255, 0.15);
   color: white;
-  font-size: 0.8rem;
   cursor: pointer;
+  text-decoration: none;
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
-.footer-theme-btn:hover {
+.footer-icon-btn:hover {
   background: rgba(255, 255, 255, 0.3);
   color: white;
-}
-
-.footer-theme-btn span {
-  display: inline-block;
+  transform: translateY(-1px);
 }
 
 /* 浅色 footer（默认主题）下适配 */
-body:not(.custom-wallpaper):not(.dark) .footer-theme-btn {
+body:not(.custom-wallpaper):not(.dark) .footer-icon-btn {
   background: #f3f4f6;
   color: #4b5563;
 }
 
-body:not(.custom-wallpaper):not(.dark) .footer-theme-btn:hover {
+body:not(.custom-wallpaper):not(.dark) .footer-icon-btn:hover {
   background: #e5e7eb;
   color: #2563eb;
 }
 
-body:not(.custom-wallpaper).dark .footer-theme-btn {
+body:not(.custom-wallpaper).dark .footer-icon-btn {
   background: rgba(255, 255, 255, 0.1);
   color: #e5e7eb;
 }
 
-body:not(.custom-wallpaper).dark .footer-theme-btn:hover {
+body:not(.custom-wallpaper).dark .footer-icon-btn:hover {
   background: rgba(255, 255, 255, 0.2);
   color: white;
 }
+

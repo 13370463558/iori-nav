@@ -23,6 +23,8 @@ export const SETTINGS_SCHEMA = {
     home_hitokoto_size: { default: '', type: 'string' },
     home_hitokoto_color: { default: '', type: 'string' },
     home_hide_admin: { default: false, type: 'boolOrOne' },
+    home_hide_sidebar: { default: false, type: 'bool' },
+    home_hide_footer_buttons: { default: false, type: 'bool' },
     home_custom_font_url: { default: '', type: 'string' },
     home_title_font: { default: '', type: 'string' },
     home_subtitle_font: { default: '', type: 'string' },
