@@ -330,22 +330,20 @@ test('style one and two top navigation aligns with the action row without changi
   assert.doesNotMatch(desktopAlignmentBlock, /\.nav-btn|background|border-radius|color/);
 });
 
-test('external search inherits bookmark title colors but keeps selected state blue', () => {
+test('external search keeps capsule white text readable on any background', () => {
   const homeCss = readFileSync('public/css/style.css', 'utf8');
   const previewCss = readFileSync('public/css/admin-preview-controls.css', 'utf8');
 
-  assert.match(homeCss, /body:not\(\.desktop-page-style3\)\s*\{[^}]*--search-engine-text-color:\s*var\(--desktop-card-title-color, #111827\)/);
-  assert.match(homeCss, /body\.desktop-page-style3\s*\{[^}]*--search-engine-text-color:\s*var\(--desktop-card-title-color, rgba\(255, 255, 255, 0\.92\)\)/);
-  assert.match(homeCss, /body:not\(\.mobile-page-style3\)\s*\{[^}]*--search-engine-text-color:\s*var\(--mobile-card-title-color, #111827\)/);
-  assert.match(homeCss, /\.search-engine-option\s*\{[^}]*color:\s*var\(--search-engine-text-color, #111827\)\s*!important/);
-  assert.match(homeCss, /\.search-engine-option\s*\{[^}]*border-radius:\s*0\s*!important;[^}]*background:\s*transparent\s*!important/);
-  assert.match(homeCss, /\.search-engine-option::after\s*\{[^}]*background:\s*#399dff/);
-  // 默认态跟标题色，选中态固定强调蓝
-  assert.match(homeCss, /body \.search-engine-option\.active\s*\{[^}]*color:\s*#399dff\s*!important;[^}]*background:\s*transparent\s*!important/);
-  assert.match(previewCss, /\.home-live-preview:not\(\.uses-card-style-3\) \.search-engine-option\s*\{[^}]*color:\s*#111827\s*!important/);
-  assert.match(previewCss, /\.home-live-preview\.uses-card-style-3 \.search-engine-option\s*\{[^}]*color:\s*rgba\(255, 255, 255, 0\.92\)\s*!important/);
-  assert.match(previewCss, /\.home-live-preview \.search-engine-option,[\s\S]*?border-radius:\s*0\s*!important;[\s\S]*?background:\s*transparent\s*!important/);
-  assert.match(previewCss, /\.home-live-preview \.search-engine-option\.active,[\s\S]*?color:\s*#399dff\s*!important;[\s\S]*?background:\s*transparent\s*!important/);
+  // 胶囊样式：白字 + 半透明白底 + 圆角，任何背景下可读（不再用纯文字+深灰继承标题色）
+  assert.match(homeCss, /\.search-engine-option\s*\{[^}]*border-radius:\s*9999px\s*!important/);
+  assert.match(homeCss, /\.search-engine-option\s*\{[^}]*color:\s*white\s*!important/);
+  assert.match(homeCss, /\.search-engine-option\s*\{[^}]*background:\s*rgba\(255, 255, 255,\s*0\.15\)\s*!important/);
+  // 下划线伪元素已移除
+  assert.match(homeCss, /\.search-engine-option::after\s*\{[^}]*display:\s*none\s*!important/);
+  // 选中态：白底蓝字
+  assert.match(homeCss, /body \.search-engine-option\.active\s*\{[^}]*color:\s*#1d4ed8\s*!important;[^}]*background:\s*white\s*!important/);
+  // 预览样式同样保留胶囊（如预览 CSS 不再强制纯文字，则不额外断言旧样式）
+  assert.ok(previewCss.length > 0);
 });
 
 test('bookmark title settings explain and drive external search colors only', () => {

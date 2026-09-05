@@ -413,11 +413,13 @@ export async function onRequest(context) {
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M7 18a5 5 0 0 1 10 0"/></svg>
     </a>`;
 
-  // footer 按钮顺序：模式切换 → Github → 管理
-  // home_hide_footer_buttons 为 true 时整个按钮组隐藏
-  const footerButtonsHtml = S.home_hide_footer_buttons
+  // footer 按钮顺序：模式切换 → Github → 管理（始终显示，无隐藏选项）
+  const footerButtonsHtml = `${themeIconHtml}${githubFooterIcon}${S.home_hide_admin ? '' : adminFooterIcon}`;
+
+  // home_hide_footer_text 为 true 时隐藏页脚描述文字（© YEAR 描述，优先于环境变量）
+  const footerTextHtml = S.home_hide_footer_text
     ? ''
-    : `${themeIconHtml}${githubFooterIcon}${S.home_hide_admin ? '' : adminFooterIcon}`;
+    : `<p>© ${new Date().getFullYear()} ${escapeHTML(footerText)}</p>`;
 
   let headerContent = verticalHeaderContent;
 
@@ -626,6 +628,7 @@ export async function onRequest(context) {
     'CANONICAL_URL': escapeHTML(canonicalUrl),
     'OG_IMAGE_URL': escapeHTML(ogImageUrl),
     'FOOTER_TEXT': escapeHTML(footerText),
+    'FOOTER_TEXT_HTML': footerTextHtml,
     'FOOTER_BUTTONS': footerButtonsHtml,
     'CATALOG_EXISTS': catalogExists ? 'true' : 'false',
     'CATALOG_LINKS': catalogLinkMarkup,

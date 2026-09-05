@@ -1027,69 +1027,54 @@ html.dark .site-card.style-3:not(.frosted-glass-effect) .site-title {
   }
 }
 
+/* 搜索引擎选项：统一为胶囊按钮样式（白字 + 半透明白底，任何背景下可读）
+   注：原实现曾用纯文字+蓝色下划线并强制覆盖背景/颜色，导致浅色背景下文字融入背景。
+   现在改为与分类按钮 nav-btn 一致的胶囊样式。 */
 .search-engine-option {
-  position: relative !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  padding: 0.2rem 0.7rem 0.35rem !important;
-  border: none !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  background-color: transparent !important;
+  padding: 0.25rem 0.75rem !important;
+  border-radius: 9999px !important;
+  border: 1px solid transparent !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  background-color: rgba(255, 255, 255, 0.15) !important;
   box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  font-size: 0.8rem !important;
-  font-weight: 400 !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
   line-height: 1.25rem !important;
-  color: var(--search-engine-text-color, #111827) !important;
+  color: white !important;
   opacity: 1 !important;
-  text-shadow: none !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45) !important;
   cursor: pointer;
 }
 
+/* 移除旧的下划线伪元素 */
 .search-engine-option::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  width: 0;
-  height: 2px;
-  background: #399dff;
-  border-radius: 1px;
-  transform: translateX(-50%);
-  transition: width 0.25s ease;
+  display: none !important;
+  content: none !important;
 }
 
 body .search-engine-option:hover {
-  color: var(--search-engine-text-color, #111827) !important;
-  background: transparent !important;
-  background-color: transparent !important;
-  border: none !important;
+  color: white !important;
+  background: rgba(255, 255, 255, 0.25) !important;
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  border: 1px solid transparent !important;
   box-shadow: none !important;
-  font-weight: 400 !important;
-  text-shadow: none !important;
+  font-weight: 500 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45) !important;
 }
 
 body .search-engine-option.active {
-  color: #399dff !important;
-  background: transparent !important;
-  background-color: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  font-weight: 500 !important;
+  color: #1d4ed8 !important;
+  background: white !important;
+  background-color: white !important;
+  border: 1px solid transparent !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1) !important;
+  font-weight: 600 !important;
   text-shadow: none !important;
-}
-
-.search-engine-option:hover::after {
-  width: 45%;
-  background: rgba(57, 157, 255, 0.65);
-}
-
-.search-engine-option.active::after {
-  width: 60%;
-  background: #399dff;
 }
 
 .search-engine-wrapper {
@@ -2136,8 +2121,8 @@ html:not(.dark) .dropdown-item.active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
   padding: 0;
   border-radius: 9999px;
   border: 1px solid transparent;
@@ -2147,6 +2132,11 @@ html:not(.dark) .dropdown-item.active {
   text-decoration: none;
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.footer-icon-btn svg {
+  width: 1.375rem;
+  height: 1.375rem;
 }
 
 .footer-icon-btn:hover {

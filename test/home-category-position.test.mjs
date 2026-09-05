@@ -152,6 +152,27 @@ test('home footer text can be configured from settings', async () => {
   assert.equal(configuredHtml.includes(`© ${year} Unit Footer`), false);
 });
 
+test('home footer text can be hidden by setting', async () => {
+  const hiddenHtml = await renderHome([
+    { key: 'home_hide_footer_text', value: 'true' },
+  ]);
+  const year = new Date().getFullYear();
+
+  assert.equal(hiddenHtml.includes(`© ${year} Unit Footer`), false);
+  // footer 图标按钮仍显示（只隐藏描述文字）
+  assert.match(hiddenHtml, /footer-icon-btn/);
+});
+
+test('home sidebar and hamburger can be hidden by setting', async () => {
+  const hiddenHtml = await renderHome([
+    { key: 'home_hide_sidebar', value: 'true' },
+  ]);
+  const sidebarClass = hiddenHtml.match(/id="sidebar" class="([^"]+)"/)?.[1] || '';
+  assert.match(sidebarClass, /\bhidden\b/);
+  // 汉堡按钮的父容器被标记 !hidden（按钮本身 class 不含 hidden）
+  assert.match(hiddenHtml, /<div class="fixed top-4 left-4 z-50 !hidden">\s*<button id="sidebarToggle"/);
+});
+
 test('home grid uses configured mobile card columns', async () => {
   const oneColHtml = await renderHome([
     { key: 'mobile_layout_grid_cols', value: '1' },
