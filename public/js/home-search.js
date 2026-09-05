@@ -111,6 +111,27 @@
       }
     }
 
+    // 执行当前引擎搜索（站外跳转 / 站内过滤），供搜索按钮与回车共用
+    function performSearch() {
+      for (const input of searchInputs) {
+        const query = input.value.trim();
+        if (!query) continue;
+        if (currentSearchEngine !== 'local') {
+          let url = '';
+          switch (currentSearchEngine) {
+            case 'google': url = `https://www.google.com/search?q=${encodeURIComponent(query)}`; break;
+            case 'baidu': url = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`; break;
+            case 'github': url = `https://github.com/search?q=${encodeURIComponent(query)}`; break;
+          }
+          if (url) window.open(url, '_blank');
+        } else {
+          // 站内搜索：实时过滤已生效，仅确保输入框同步
+          input.dispatchEvent(new Event('input'));
+        }
+        return;
+      }
+    }
+
     Home.clearSearchCardCache = clearSearchCardCache;
     Home.reapplyLocalSearchFilter = reapplyLocalSearchFilter;
     Home.updateHeading = updateHeading;
@@ -152,19 +173,19 @@
       });
 
       input.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' && currentSearchEngine !== 'local') {
+        if (e.key === 'Enter') {
           e.preventDefault();
-          const query = this.value.trim();
-          if (query) {
-            let url = '';
-            switch (currentSearchEngine) {
-              case 'google': url = `https://www.google.com/search?q=${encodeURIComponent(query)}`; break;
-              case 'baidu': url = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`; break;
-              case 'github': url = `https://github.com/search?q=${encodeURIComponent(query)}`; break;
-            }
-            if (url) window.open(url, '_blank');
-          }
+          performSearch();
         }
+      });
+    });
+
+    // 搜索按钮（桌面/移动/竖向三种搜索框）
+    document.querySelectorAll('.search-submit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        performSearch();
       });
     });
 

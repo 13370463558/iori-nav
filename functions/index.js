@@ -278,13 +278,13 @@ export async function onRequest(context) {
   const statsRowPyClass = shouldRenderStatsRow ? 'my-8' : 'hidden';
   const statsRowHiddenClass = shouldRenderStatsRow ? '' : 'hidden';
 
-  // === 13. 搜索引擎选项 ===
+  // === 13. 搜索引擎选项（站外在前，站内最后） ===
   const searchEngineOptions = S.home_search_engine_enabled ? `
     <div class="flex justify-center items-center gap-3 mb-4 text-sm select-none search-engine-wrapper">
-        <label class="search-engine-option active" data-engine="local"><span>站内</span></label>
         <label class="search-engine-option" data-engine="google"><span>Google</span></label>
         <label class="search-engine-option" data-engine="baidu"><span>Baidu</span></label>
         <label class="search-engine-option" data-engine="github"><span>Github</span></label>
+        <label class="search-engine-option active" data-engine="local"><span>站内</span></label>
     </div>` : '';
 
   // === 14. Header HTML ===
@@ -331,8 +331,11 @@ export async function onRequest(context) {
       <div class="home-search-shell relative max-w-xl mx-auto">
         ${searchEngineOptions}
         <div class="home-search-field relative">
-          <input type="search" placeholder="搜索书签..." class="search-input-target w-full pl-12 pr-4 py-3.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
+          <input type="search" placeholder="搜索书签..." class="search-input-target w-full pl-12 pr-12 py-3.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
           <svg xmlns="http://www.w3.org/2000/svg" class="home-search-icon h-6 w-6 absolute left-4 top-3.5 ${searchIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <button type="button" id="verticalSearchBtn" class="search-submit-btn absolute right-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </button>
         </div>
       </div>
     </div>`;
@@ -345,8 +348,11 @@ export async function onRequest(context) {
       <div class="home-search-shell relative max-w-xl mx-auto ${categoryPosition === 'below_search' ? 'mb-8' : ''}">
         ${searchEngineOptions}
         <div class="home-search-field relative">
-          <input id="headerSearchInput" type="search" placeholder="搜索书签..." class="search-input-target w-full pl-12 pr-4 py-3.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
+          <input id="headerSearchInput" type="search" placeholder="搜索书签..." class="search-input-target w-full pl-12 pr-12 py-3.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
           <svg xmlns="http://www.w3.org/2000/svg" class="home-search-icon h-6 w-6 absolute left-4 top-3.5 ${searchIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <button type="button" id="desktopSearchBtn" class="search-submit-btn absolute right-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </button>
         </div>
       </div>
       ${categoryPosition === 'below_search' ? horizontalCategoryNavHtml : ''}
@@ -369,8 +375,11 @@ export async function onRequest(context) {
       <div class="home-search-shell relative max-w-xl mx-auto">
         ${searchEngineOptions}
         <div class="home-search-field relative">
-          <input type="search" placeholder="搜索书签..." class="search-input-target w-full pl-12 pr-4 py-2.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
+          <input type="search" placeholder="搜索书签..." class="search-input-target w-full pl-12 pr-12 py-2.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
           <svg xmlns="http://www.w3.org/2000/svg" class="home-search-icon h-5 w-5 absolute left-4 top-2.5 ${searchIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <button type="button" id="mobileSearchBtn" class="search-submit-btn absolute right-1.5 top-1/2 -translate-y-1/2" aria-label="搜索">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </button>
         </div>
       </div>
     </div>`;
@@ -382,9 +391,10 @@ export async function onRequest(context) {
   let mobileToggleVisibilityClass = 'lg:hidden';
   let adminIconHtml = '';
   const themeIconHtml = `
-    <button id="themeToggleBtn" class="top-action-icon theme-action-icon" title="切换主题">
-      <svg id="themeIconSun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="block dark:hidden"><circle cx="12" cy="12" r="5"></circle><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path></svg>
-      <svg id="themeIconMoon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden dark:block"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+    <button id="themeToggleBtn" class="footer-theme-btn" title="切换主题">
+      <svg id="themeIconSun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="block dark:hidden"><circle cx="12" cy="12" r="5"></circle><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path></svg>
+      <svg id="themeIconMoon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden dark:block"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      <span id="themeToggleLabel">切换主题</span>
     </button>`;
 
   let headerContent = verticalHeaderContent;
@@ -407,7 +417,7 @@ export async function onRequest(context) {
       <div class="hidden min-[550px]:block">${horizontalHeaderContent}</div>`;
   }
 
-  const topRightActionsHtml = `<div class="fixed top-4 right-4 z-50 flex items-center gap-3">${themeIconHtml}${adminIconHtml}</div>`;
+  const topRightActionsHtml = `<div class="fixed top-4 right-4 z-50 flex items-center gap-3">${adminIconHtml}</div>`;
   const leftTopActionHtml = `
     <div class="fixed top-4 left-4 z-50 ${mobileToggleVisibilityClass}">
       <button id="sidebarToggle" class="p-2 rounded-lg bg-white dark:bg-gray-800 shadow-md hover:bg-gray-100 dark:hover:bg-gray-700">
@@ -588,6 +598,7 @@ export async function onRequest(context) {
     'CANONICAL_URL': escapeHTML(canonicalUrl),
     'OG_IMAGE_URL': escapeHTML(ogImageUrl),
     'FOOTER_TEXT': escapeHTML(footerText),
+    'FOOTER_THEME_BTN': themeIconHtml,
     'CATALOG_EXISTS': catalogExists ? 'true' : 'false',
     'CATALOG_LINKS': catalogLinkMarkup,
     'SUBMISSION_CLASS': submissionClass,
