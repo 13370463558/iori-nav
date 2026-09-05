@@ -2060,31 +2060,8 @@ html:not(.dark) .dropdown-item.active {
 }
 
 /* ============================================================
-   搜索按钮（桌面/移动/竖向三处搜索框的放大镜按钮）
+   搜索按钮（桌面/移动/竖向三处搜索框左侧的放大镜，点击触发搜索）
    ============================================================ */
-.search-submit-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 9999px;
-  border: none;
-  cursor: pointer;
-  color: #4b5563;
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
-  z-index: 2;
-}
-
-.search-submit-btn:hover {
-  background: white;
-  color: #2563eb;
-  transform: translateY(-50%) scale(1.05);
-}
-
-/* 左侧放大镜触发按钮（点击同样触发搜索） */
 .search-trigger-btn {
   display: inline-flex;
   align-items: center;
@@ -2104,14 +2081,12 @@ html:not(.dark) .dropdown-item.active {
   color: #2563eb;
 }
 
-.dark .search-submit-btn {
+.dark .search-trigger-btn {
   color: #e5e7eb;
-  background: rgba(255, 255, 255, 0.12);
 }
 
-.dark .search-submit-btn:hover {
+.dark .search-trigger-btn:hover {
   color: white;
-  background: rgba(255, 255, 255, 0.2);
 }
 
 /* ============================================================
