@@ -352,6 +352,29 @@ export async function onRequest(context) {
       ${categoryPosition === 'below_search' ? horizontalCategoryNavHtml : ''}
     </div>`;
 
+  // 移动端（<550px）：nav-item 风格 —— 紧凑横向分类条显示在搜索栏上方
+  // 固定使用多行 wrap（不折叠到「更多」），分类按钮更小、更紧凑。
+  const mobileTitleHtml = S.layout_hide_title ? '' : `<h1 class="text-2xl font-bold tracking-tight mb-2 ${titleColorClass}" ${titleStyle}>${safeSiteName}</h1>`;
+  const mobileSubtitleHtml = S.layout_hide_subtitle ? '' : `<p class="${subTextColorClass} opacity-90 text-xs" ${subtitleStyle}>${safeSiteDesc}</p>`;
+  const mobileCategoryNavHtml = `
+      <div class="horizontal-category-nav-shell relative mx-auto">
+        <div id="mobileCategoryNav" class="flex flex-wrap justify-center items-center gap-1.5 overflow-visible is-multi-line transition-all duration-300">
+          ${horizontalCatalogMarkup}
+        </div>
+      </div>`;
+  const mobileHeaderContent = `
+    <div class="max-w-5xl mx-auto text-center relative z-10 ${themeClass}">
+      <div class="home-title-block max-w-4xl mx-auto mb-3">${mobileTitleHtml}${mobileSubtitleHtml}</div>
+      <div class="mb-3">${mobileCategoryNavHtml}</div>
+      <div class="home-search-shell relative max-w-xl mx-auto">
+        ${searchEngineOptions}
+        <div class="home-search-field relative">
+          <input type="search" placeholder="搜索书签..." class="search-input-target w-full pl-12 pr-4 py-2.5 rounded-2xl transition-all shadow-lg outline-none focus:outline-none focus:ring-2 ${searchInputClass}" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="搜索书签" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
+          <svg xmlns="http://www.w3.org/2000/svg" class="home-search-icon h-5 w-5 absolute left-4 top-2.5 ${searchIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        </div>
+      </div>
+    </div>`;
+
   // === 15. 布局控制 ===
   let sidebarClass = '';
   let mainClass = 'lg:ml-64';
@@ -380,7 +403,7 @@ export async function onRequest(context) {
     }
 
     headerContent = `
-      <div class="min-[550px]:hidden">${verticalHeaderContent}</div>
+      <div class="min-[550px]:hidden">${mobileHeaderContent}</div>
       <div class="hidden min-[550px]:block">${horizontalHeaderContent}</div>`;
   }
 

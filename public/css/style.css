@@ -2019,3 +2019,58 @@ html:not(.dark) .dropdown-item.active {
     margin-bottom: 0;
   }
 }
+
+/* ============================================================
+   移动端（<550px）nav-item 风格 —— 紧凑横向分类条，显示在搜索栏上方
+   ============================================================ */
+@media (max-width: 549px) {
+  /* 紧凑分类条：按钮更小、间距更紧 */
+  #mobileCategoryNav {
+    gap: 0.35rem !important;
+  }
+
+  #mobileCategoryNav .nav-btn {
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    height: 1.85rem;
+    min-width: 0;
+    border-radius: 9999px;
+    backdrop-filter: blur(4px);
+  }
+
+  #mobileCategoryNav .nav-btn svg {
+    width: 0.75rem;
+    height: 0.75rem;
+    margin-left: 0.2rem;
+  }
+
+  /* 移动端标题/描述紧凑 */
+  .home-title-block h1 {
+    font-size: 1.4rem !important;
+    line-height: 1.2 !important;
+    margin-bottom: 0.25rem !important;
+  }
+  .home-title-block p {
+    font-size: 0.72rem !important;
+  }
+
+  /* 移动端 header 内边距紧凑，分类条贴近搜索框 */
+  header .home-title-block {
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* 移动端分类条容器与搜索框间距 */
+  #mobileCategoryNav {
+    margin-bottom: 0.6rem !important;
+  }
+
+  /* 移动端搜索框更紧凑 */
+  header .home-search-field input {
+    padding-top: 0.55rem !important;
+    padding-bottom: 0.55rem !important;
+  }
+  header .home-search-icon {
+    top: 0.55rem !important;
+  }
+}
