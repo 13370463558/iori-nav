@@ -130,6 +130,41 @@
       .catch(console.error);
   }
 
+  function initUuidGenerator() {
+    const generateUuidBtn = document.getElementById('generateUuidBtn');
+    if (!generateUuidBtn) return;
+
+    generateUuidBtn.addEventListener('click', async () => {
+      const uuid = typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => {
+            const random = crypto.getRandomValues(new Uint8Array(1))[0] & 15;
+            const value = char === 'x' ? random : (random & 3) | 8;
+            return value.toString(16);
+          });
+
+      try {
+        await navigator.clipboard.writeText(uuid);
+        showToast(`UUID 已生成并复制：${uuid}`);
+      } catch (error) {
+        const textarea = document.createElement('textarea');
+        textarea.value = uuid;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          showToast(`UUID 已生成并复制：${uuid}`);
+        } catch (copyError) {
+          showToast(`UUID 已生成，请手动复制：${uuid}`);
+        } finally {
+          textarea.remove();
+        }
+      }
+    });
+  }
+
   function initThemeToggle() {
     const themeToggleBtn = document.getElementById('themeToggleBtn');
     if (!themeToggleBtn) return;
@@ -172,6 +207,7 @@
     initCopyButtons();
     initBackToTop();
     initHitokoto();
+    initUuidGenerator();
     initThemeToggle();
   };
 })();
