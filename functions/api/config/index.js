@@ -41,7 +41,7 @@ export async function onRequestGet(context) {
       queryBindParams.push(`%${escaped}%`, `%${escaped}%`, `%${escaped}%`, `%${escaped}%`);
     }
 
-    const query = `SELECT * ${queryBase} ORDER BY sort_order ASC, create_time DESC LIMIT ? OFFSET ?`;
+    const query = `SELECT * ${queryBase} ORDER BY sort_order ASC, create_time DESC, id ASC LIMIT ? OFFSET ?`;
     const countQuery = `SELECT COUNT(*) as total ${queryBase}`;
     
     // 添加分页参数

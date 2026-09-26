@@ -37,10 +37,14 @@ function createEnv({ failBatchAfter = null } = {}) {
             async first() {
               return { catelog: 'Default', is_private: 0 };
             },
+            async all() {
+              return { results: buildItems(150).map(item => ({ id: item.id })) };
+            },
           });
           return {
             bind: (...params) => statement(params),
             first: statement().first,
+            all: statement().all,
           };
         },
         async batch(statements) {
@@ -49,7 +53,7 @@ function createEnv({ failBatchAfter = null } = {}) {
             throw new Error('D1 batch failed');
           }
           events.push(`db:batch(${statements.length})`);
-          return statements.map(() => ({ success: true }));
+          return statements.map(() => ({ success: true, meta: { changes: 1 } }));
         },
       },
     },
@@ -109,7 +113,7 @@ test('site reorder marks the home cache dirty after writing, exactly once per ke
   const { env, events } = createEnv();
   const request = buildRequest('https://example.com/api/config/batch', {
     action: 'reorder',
-    payload: { items: buildItems(3) },
+    payload: { orderedIds: [2, 1, 3], page: 1, pageSize: 3 },
   });
 
   const response = await siteBatch({ request, env });
@@ -130,7 +134,7 @@ test('site reorder marks the home cache dirty when a chunk fails midway', async 
   const { env, events } = createEnv({ failBatchAfter: 1 });
   const request = buildRequest('https://example.com/api/config/batch', {
     action: 'reorder',
-    payload: { items: buildItems(150) },
+    payload: { orderedIds: buildItems(150).map(item => item.id), page: 1, pageSize: 150 },
   });
 
   const response = await siteBatch({ request, env });

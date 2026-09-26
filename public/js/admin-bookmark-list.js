@@ -278,10 +278,20 @@
 
   function setupDragAndDrop() {
     const cards = document.querySelectorAll('#configGrid .site-card');
+    const reorderBlocked = Boolean(currentSearchKeyword || currentCategoryFilter);
     let draggedItem = null;
 
     cards.forEach(card => {
+      card.draggable = !reorderBlocked;
+      card.title = reorderBlocked ? '搜索或分类筛选状态下无法安全调整全局排序，请清除筛选后重试' : '';
+
       card.addEventListener('dragstart', function (e) {
+        if (reorderBlocked) {
+          e.preventDefault();
+          window.showMessage('搜索或分类筛选状态下无法调整排序，请清除筛选后重试', 'error');
+          return;
+        }
+
         draggedItem = this;
         this.classList.add('opacity-50', 'scale-95');
         e.dataTransfer.effectAllowed = 'move';
@@ -326,18 +336,16 @@
   }
 
   function saveSortOrder() {
+    if (currentSearchKeyword || currentCategoryFilter) {
+      window.showMessage('搜索或分类筛选状态下无法调整排序，请清除筛选后重试', 'error');
+      fetchConfigs();
+      return;
+    }
+
     const cards = document.querySelectorAll('#configGrid .site-card');
-    const startIndex = (currentPage - 1) * pageSize;
-    const items = [];
+    const orderedIds = Array.from(cards, card => Number(card.dataset.id));
 
-    cards.forEach((card, index) => {
-      items.push({
-        id: Number(card.dataset.id),
-        sort_order: startIndex + index,
-      });
-    });
-
-    if (items.length === 0) return;
+    if (orderedIds.length === 0) return;
 
     window.showMessage('正在保存排序...', 'info');
     fetch('/api/config/batch', {
@@ -345,25 +353,28 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'reorder',
-        payload: { items }
+        payload: {
+          orderedIds,
+          page: currentPage,
+          pageSize,
+        }
       })
     })
       .then(res => res.json())
       .then(data => {
         if (data.code !== 200) {
           window.showMessage(data.message || '保存排序失败', 'error');
+          fetchConfigs();
           return;
         }
 
         window.showMessage('排序已保存', 'success');
-        cards.forEach((card, index) => {
-          const config = allConfigs.find(c => c.id == card.dataset.id);
-          if (config) {
-            config.sort_order = startIndex + index;
-          }
-        });
+        fetchConfigs();
       })
-      .catch(err => window.showMessage('保存排序失败: ' + err.message, 'error'));
+      .catch(err => {
+        window.showMessage('保存排序失败: ' + err.message, 'error');
+        fetchConfigs();
+      });
   }
 
   function bindSearchAndPagination() {
