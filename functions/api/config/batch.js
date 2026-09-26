@@ -111,6 +111,9 @@ export async function onRequestPost(context) {
       const orderedIds = payload?.orderedIds;
       const page = Number(payload?.page);
       const pageSize = Number(payload?.pageSize);
+      const rawCatalogId = payload?.catalogId;
+      const hasCatalog = rawCatalogId !== undefined && rawCatalogId !== null && rawCatalogId !== '';
+      const catalogId = hasCatalog ? Number(rawCatalogId) : null;
 
       if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
         return errorResponse('排序数据不能为空', 400);
@@ -118,6 +121,10 @@ export async function onRequestPost(context) {
 
       if (!Number.isInteger(page) || page < 1 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 200) {
         return errorResponse('分页参数无效', 400);
+      }
+
+      if (hasCatalog && (!Number.isInteger(catalogId) || catalogId <= 0)) {
+        return errorResponse('分类 ID 无效', 400);
       }
 
       const normalizedIds = orderedIds.map(Number);
@@ -128,12 +135,24 @@ export async function onRequestPost(context) {
         return errorResponse('排序数据包含重复 ID', 400);
       }
 
-      const { results = [] } = await env.NAV_DB.prepare(
-        'SELECT id FROM sites ORDER BY sort_order ASC, create_time DESC, id ASC'
-      ).all();
-      const globalIds = results.map(row => Number(row.id));
+      if (hasCatalog) {
+        const category = await env.NAV_DB.prepare('SELECT id FROM category WHERE id = ?').bind(catalogId).first();
+        if (!category) {
+          return errorResponse('找不到分类', 404);
+        }
+      }
+
+      const sitesQuery = hasCatalog
+        ? env.NAV_DB.prepare(
+          'SELECT id FROM sites WHERE catelog_id = ? ORDER BY sort_order ASC, create_time DESC, id ASC'
+        ).bind(catalogId)
+        : env.NAV_DB.prepare(
+          'SELECT id FROM sites ORDER BY sort_order ASC, create_time DESC, id ASC'
+        );
+      const { results = [] } = await sitesQuery.all();
+      const scopedIds = results.map(row => Number(row.id));
       const startIndex = (page - 1) * pageSize;
-      const currentPageIds = globalIds.slice(startIndex, startIndex + pageSize);
+      const currentPageIds = scopedIds.slice(startIndex, startIndex + pageSize);
 
       if (currentPageIds.length !== normalizedIds.length) {
         return errorResponse('列表已发生变化，请刷新后重试', 409);
@@ -141,11 +160,11 @@ export async function onRequestPost(context) {
 
       const expectedIds = new Set(currentPageIds);
       if (normalizedIds.some(id => !expectedIds.has(id))) {
-        return errorResponse('排序数据与当前页不一致，请刷新后重试', 409);
+        return errorResponse(hasCatalog ? '排序数据包含其他分类的 ID' : '排序数据与当前页不一致，请刷新后重试', 409);
       }
 
-      globalIds.splice(startIndex, normalizedIds.length, ...normalizedIds);
-      const reorderStatements = globalIds.map((id, sortOrder) =>
+      scopedIds.splice(startIndex, normalizedIds.length, ...normalizedIds);
+      const reorderStatements = scopedIds.map((id, sortOrder) =>
         env.NAV_DB.prepare(
           'UPDATE sites SET sort_order = ?, update_time = CURRENT_TIMESTAMP WHERE id = ?'
         ).bind(sortOrder, id)
@@ -159,13 +178,13 @@ export async function onRequestPost(context) {
       }
 
       const updatedCount = resultsByChunk.reduce((total, result) => total + Number(result?.meta?.changes || 0), 0);
-      if (updatedCount !== globalIds.length) {
-        throw new Error(`排序更新行数不匹配：预期 ${globalIds.length}，实际 ${updatedCount}`);
+      if (updatedCount !== scopedIds.length) {
+        throw new Error(`排序更新行数不匹配：预期 ${scopedIds.length}，实际 ${updatedCount}`);
       }
 
       return jsonResponse({
         code: 200,
-        message: `成功重新编号 ${globalIds.length} 条项目`
+        message: `成功重新编号 ${scopedIds.length} 条项目`
       });
     } else {
       return errorResponse('无效的操作', 400);

@@ -10,7 +10,7 @@
   const SEARCH_DEBOUNCE_MS = 300;
   const LONG_PRESS_MS = 400;
   const POINTER_MOVE_TOLERANCE_PX = 10;
-  const REORDER_BLOCKED_MESSAGE = '搜索或分类筛选状态下无法调整排序，请清除筛选后重试';
+  const REORDER_BLOCKED_MESSAGE = '搜索状态下无法调整排序，请清除搜索关键词后重试';
 
   let currentPage = 1;
   let pageSize = 50;
@@ -287,7 +287,7 @@
 
   function setupDragAndDrop() {
     const cards = Array.from(document.querySelectorAll('#configGrid .site-card'));
-    const reorderBlocked = Boolean(currentSearchKeyword || currentCategoryFilter);
+    const reorderBlocked = Boolean(currentSearchKeyword);
     let draggedItem = null;
     let pointerId = null;
     let longPressTimer = null;
@@ -456,8 +456,8 @@
   }
 
   function saveSortOrder() {
-    if (currentSearchKeyword || currentCategoryFilter) {
-      window.showMessage('搜索或分类筛选状态下无法调整排序，请清除筛选后重试', 'error');
+    if (currentSearchKeyword) {
+      window.showMessage(REORDER_BLOCKED_MESSAGE, 'error');
       fetchConfigs();
       return;
     }
@@ -474,6 +474,7 @@
       body: JSON.stringify({
         action: 'reorder',
         payload: {
+          catalogId: currentCategoryFilter || null,
           orderedIds,
           page: currentPage,
           pageSize,

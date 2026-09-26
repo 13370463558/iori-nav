@@ -284,18 +284,40 @@ test('完成拖动后紧随的 click 不打开书签', async () => {
   assert.equal(harness.opened.length, 0);
 });
 
-test('分类筛选状态禁止触摸和 HTML5 拖动排序并显示原有提示', async () => {
+test('分类筛选状态允许触摸长按拖动并携带分类和分页参数', async () => {
   const harness = createHarness({ filtered: true });
-  const [card] = await harness.load();
+  const [first, second, third] = await harness.load();
 
-  assert.equal(card.draggable, false);
-  card.dispatch('pointerdown');
-  const dragEvent = card.dispatch('dragstart', {
-    dataTransfer: { effectAllowed: '', setData() {} },
+  assert.equal(first.draggable, true);
+  first.dispatch('pointerdown');
+  harness.runLongPress();
+  harness.setHitTarget(third);
+  first.dispatch('pointermove', { clientX: 30, clientY: 80 });
+  first.dispatch('pointerup');
+  await harness.flush();
+
+  const saves = harness.requests.filter(call => call.url === '/api/config/batch');
+  assert.equal(saves.length, 1);
+  assert.deepEqual(JSON.parse(saves[0].init.body).payload, {
+    catalogId: '7',
+    orderedIds: [2, 3, 1],
+    page: 1,
+    pageSize: 50,
   });
+  assert.equal(second.classList.contains('bookmark-drop-target'), false);
+});
 
-  assert.equal(harness.timers.some(timer => timer.delay === 400 && !timer.cleared), false);
-  assert.equal(dragEvent.defaultPrevented, true);
-  assert.ok(harness.messages.some(item => item.message.includes('搜索或分类筛选状态下无法调整排序')));
-  assert.equal(harness.requests.some(call => call.url === '/api/config/batch'), false);
+test('分类筛选状态允许桌面 HTML5 拖动排序', async () => {
+  const harness = createHarness({ filtered: true });
+  const [first, second] = await harness.load();
+  const dataTransfer = { effectAllowed: '', dropEffect: '', setData() {} };
+
+  first.dispatch('dragstart', { dataTransfer });
+  second.dispatch('drop', { dataTransfer });
+  await harness.flush();
+
+  assert.equal(dataTransfer.effectAllowed, 'move');
+  const saves = harness.requests.filter(call => call.url === '/api/config/batch');
+  assert.equal(saves.length, 1);
+  assert.equal(JSON.parse(saves[0].init.body).payload.catalogId, '7');
 });
