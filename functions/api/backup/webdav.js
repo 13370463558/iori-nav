@@ -17,6 +17,14 @@ const WEBDAV_KEYS = ['webdav_url', 'webdav_username', 'webdav_password', 'webdav
 // 备份列表与恢复的最大条数
 const BACKUP_LIST_LIMIT = 10;
 
+// 应用主动报告的 WebDAV 上游失败使用 424，避免 Cloudflare 将 502 响应替换为平台 HTML。
+// 上游原始状态仍保留在 JSON message 中；本地校验、认证、404、413 等继续使用各自语义。
+function webdavFailureStatus(result) {
+  if (result.tooLarge) return 413;
+  if (result.status === 404) return 404;
+  return 424;
+}
+
 // 只认本程序生成的文件名，顺带杜绝路径穿越（不含 / 与 ..）
 // 毫秒与随机后缀是必需段：防同秒并发覆盖，也让目录里的外来文件不被当成备份
 const BACKUP_FILENAME_RE = /^iori-nav-backup-(\d{8})-(\d{6})-(\d{3})-[0-9a-f]{32}\.json$/i;
@@ -152,7 +160,7 @@ export async function onRequestPost(context) {
     });
 
     if (!result.ok) {
-      return errorResponse(`备份失败: ${result.message}`, 502);
+      return errorResponse(`备份失败: ${result.message}`, webdavFailureStatus(result));
     }
 
     return jsonResponse({
@@ -207,7 +215,7 @@ export async function onRequestGet(context) {
       if (result.tooLarge) {
         return errorResponse(`获取备份列表失败: ${result.message}`, 413);
       }
-      return errorResponse(`获取备份列表失败: ${result.message}`, result.status >= 400 && result.status < 500 ? 400 : 502);
+      return errorResponse(`获取备份列表失败: ${result.message}`, webdavFailureStatus(result));
     }
 
     return jsonResponse({
@@ -248,10 +256,7 @@ export async function onRequestDelete(context) {
     });
 
     if (!result.ok) {
-      const status = result.status === 404
-        ? 404
-        : (result.status >= 400 && result.status < 500 ? 400 : 502);
-      return errorResponse(`删除备份失败: ${result.message}`, status);
+      return errorResponse(`删除备份失败: ${result.message}`, webdavFailureStatus(result));
     }
 
     return jsonResponse({
@@ -289,7 +294,7 @@ async function downloadBackup({ config, baseUrl, password, filename }) {
       if (result.tooLarge) {
         return errorResponse(`备份超出恢复限制: ${result.message}`, 413);
       }
-      return errorResponse(`下载备份失败: ${result.message}`, result.status >= 400 && result.status < 500 ? 400 : 502);
+      return errorResponse(`下载备份失败: ${result.message}`, webdavFailureStatus(result));
     }
 
     let parsed;

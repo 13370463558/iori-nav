@@ -323,6 +323,105 @@ test('POST /api/backup/webdav creates missing directory via MKCOL then retries P
   assert.equal(mkcolCalls[1].url, 'https://dav.example.com/iori-nav/sub/');
 });
 
+test('POST /api/backup/webdav preserves an upstream HTML 502 summary in JSON with HTTP 424', async () => {
+  const kv = createKv({ session_token: '1' });
+  const db = createDb({
+    settings: {
+      webdav_url: 'https://dav.example.com/?token=private-query',
+      webdav_username: 'user',
+      webdav_password: 'secret',
+    },
+    sites: SAMPLE_DATA.sites,
+    categories: SAMPLE_DATA.categories,
+  });
+
+  stubFetchOnce(() => new Response(
+    '<!doctype html><html><head><title>Cloudflare Bad Gateway</title></head>'
+      + '<body>Authorization: Basic leaked password=hidden https://dav.example.com/path?token=secret</body></html>',
+    {
+      status: 502,
+      statusText: 'Bad Gateway',
+      headers: { 'Content-Type': 'text/html; charset=UTF-8', Server: 'cloudflare' },
+    },
+  ));
+
+  const response = await onRequestPost({
+    request: buildRequest(),
+    env: { NAV_AUTH: kv, NAV_DB: db },
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 424);
+  assert.equal(response.headers.get('Content-Type'), 'application/json');
+  assert.match(body.message, /WebDAV PUT 返回 502 Bad Gateway/);
+  assert.match(body.message, /Content-Type text\/html/);
+  assert.match(body.message, /Server cloudflare/);
+  assert.match(body.message, /Cloudflare Bad Gateway/);
+  assert.doesNotMatch(body.message, /private-query|token=secret|Basic leaked|password=hidden/);
+  assert.doesNotMatch(body.message, /<html|<body/i);
+});
+
+test('POST /api/backup/webdav preserves an empty upstream 502 with HTTP 424', async () => {
+  const kv = createKv({ session_token: '1' });
+  const db = createDb({
+    settings: { webdav_url: 'https://dav.example.com/', webdav_password: 'secret' },
+    sites: SAMPLE_DATA.sites,
+    categories: SAMPLE_DATA.categories,
+  });
+  stubFetchOnce(() => new Response(null, { status: 502, statusText: 'Bad Gateway' }));
+
+  const response = await onRequestPost({ request: buildRequest(), env: { NAV_AUTH: kv, NAV_DB: db } });
+  const body = await response.json();
+
+  assert.equal(response.status, 424);
+  assert.match(body.message, /WebDAV PUT 返回 502 Bad Gateway/);
+});
+
+test('GET /api/backup/webdav preserves an upstream JSON error with HTTP 424', async () => {
+  const kv = createKv({ session_token: '1' });
+  const db = createDb({
+    settings: { webdav_url: 'https://dav.example.com/', webdav_username: 'u', webdav_password: 'p' },
+  });
+  stubFetchOnce(() => jsonResponse(500, { error: 'storage temporarily unavailable' }));
+
+  const response = await onRequestGet({ request: buildGetRequest('?limit=10'), env: { NAV_AUTH: kv, NAV_DB: db } });
+  const body = await response.json();
+
+  assert.equal(response.status, 424);
+  assert.match(body.message, /WebDAV PROPFIND 返回 500/);
+  assert.match(body.message, /application\/json/);
+  assert.match(body.message, /storage temporarily unavailable/);
+});
+
+test('POST /api/backup/webdav preserves an MKCOL upstream failure summary', async () => {
+  const kv = createKv({ session_token: '1' });
+  const db = createDb({
+    settings: {
+      webdav_url: 'https://dav.example.com/',
+      webdav_password: 'secret',
+      webdav_dir: 'iori-nav',
+    },
+    sites: SAMPLE_DATA.sites,
+    categories: SAMPLE_DATA.categories,
+  });
+  stubFetchOnce((_calls, _url, init) => {
+    if (init.method === 'PUT') return jsonResponse(409, { message: 'parent missing' });
+    return new Response('<html><head><title>Cloudflare origin unavailable</title></head></html>', {
+      status: 502,
+      statusText: 'Bad Gateway',
+      headers: { 'Content-Type': 'text/html', Server: 'cloudflare' },
+    });
+  });
+
+  const response = await onRequestPost({ request: buildRequest(), env: { NAV_AUTH: kv, NAV_DB: db } });
+  const body = await response.json();
+
+  assert.equal(response.status, 424);
+  assert.match(body.message, /创建备份目录「iori-nav」失败/);
+  assert.match(body.message, /WebDAV MKCOL 返回 502 Bad Gateway/);
+  assert.match(body.message, /Cloudflare origin unavailable/);
+});
+
 test('POST /api/backup/webdav surfaces WebDAV auth errors', async () => {
   const kv = createKv({ session_token: '1' });
   const db = createDb({
@@ -339,7 +438,7 @@ test('POST /api/backup/webdav surfaces WebDAV auth errors', async () => {
   });
   const body = await response.json();
 
-  assert.equal(response.status, 502);
+  assert.equal(response.status, 424);
   assert.match(body.message, /认证失败/);
 });
 
@@ -365,7 +464,7 @@ test('WebDAV requests never follow redirects with credentials attached', async (
 
   assert.equal(calls.length, 1, '不应再向重定向目标发第二次请求');
   assert.equal(calls[0].init.redirect, 'manual');
-  assert.equal(response.status, 502);
+  assert.equal(response.status, 424);
   assert.match(body.message, /重定向/);
   assert.equal(JSON.stringify(body).includes('secret'), false, '错误信息不得回显密码');
 });

@@ -91,6 +91,57 @@ const REDIRECT_MESSAGE = 'WebDAV 服务器要求重定向，请把设置里的�
 // PROPFIND 返回的是目录元数据 XML，不是备份内容。几千个条目也远不到 5MB，
 // 这里只是防住「目录异常庞大或服务端乱吐」把 isolate 撑爆
 const LIST_RESPONSE_MAX_BYTES = 5 * 1024 * 1024;
+const ERROR_RESPONSE_MAX_CHARS = 240;
+
+/**
+ * 安全摘要 WebDAV 非成功响应，避免回显凭据、完整查询参数或大段敏感正文。
+ * HTML 优先提取 title，否则转为纯文本；其他格式只保留至多 240 个字符。
+ */
+async function describeWebdavError(res, method) {
+    const contentType = String(res.headers.get('Content-Type') || '').split(';')[0].trim();
+    const server = String(res.headers.get('Server') || '').trim();
+    const statusText = String(res.statusText || '').trim();
+    let text = '';
+
+    try {
+        text = await res.text();
+    } catch {
+        text = '';
+    }
+
+    if (/text\/html|application\/xhtml\+xml/i.test(contentType) || /<\s*!doctype\s+html|<\s*html\b/i.test(text)) {
+        const title = text.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '';
+        text = title || text
+            .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+            .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+            .replace(/<[^>]+>/g, ' ');
+    }
+
+    text = text
+        .replace(/https?:\/\/[^\s"'<>]+/gi, value => {
+            try {
+                const parsed = new URL(value);
+                parsed.username = '';
+                parsed.password = '';
+                parsed.search = '';
+                parsed.hash = '';
+                return parsed.toString();
+            } catch {
+                return '[已隐藏 URL]';
+            }
+        })
+        .replace(/\b(?:authorization|password|passwd|token|secret)\s*[:=]\s*[^\s,;]+/gi, '$1=[已隐藏]')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, ERROR_RESPONSE_MAX_CHARS);
+
+    const status = `${res.status}${statusText ? ` ${statusText}` : ''}`;
+    const metadata = [contentType && `Content-Type ${contentType}`, server && `Server ${server}`]
+        .filter(Boolean)
+        .join('，');
+    const detail = [metadata, text].filter(Boolean).join('：');
+    return `WebDAV ${method} 返回 ${status}${detail ? `：${detail}` : ''}`;
+}
 
 /**
  * 目录不存在时服务器通常返回 409（部分实现返回 404）
@@ -122,7 +173,12 @@ async function ensureWebdavDir(baseUrl, dir, authHeader) {
         // 201 新建成功；405 已存在
         if (res.status === 201 || res.status === 405) continue;
 
-        return { ok: false, status: res.status, segment: path };
+        return {
+            ok: false,
+            status: res.status,
+            segment: path,
+            message: await describeWebdavError(res, 'MKCOL'),
+        };
     }
 
     return { ok: true, status: 201, segment: '' };
@@ -281,7 +337,12 @@ export async function listWebdavFiles(params) {
         return { ok: false, status: 404, message: '备份目录不存在，请先执行一次备份', entries: [] };
     }
     if (!res.ok) {
-        return { ok: false, status: res.status, message: `WebDAV 返回 ${res.status}`, entries: [] };
+        return {
+            ok: false,
+            status: res.status,
+            message: await describeWebdavError(res, 'PROPFIND'),
+            entries: [],
+        };
     }
 
     const read = await readTextWithLimit(res, LIST_RESPONSE_MAX_BYTES);
@@ -377,7 +438,13 @@ export async function downloadWebdavFile(params) {
         return { ok: false, status: 404, message: '备份文件不存在', content: '', byteLength: 0 };
     }
     if (!res.ok) {
-        return { ok: false, status: res.status, message: `WebDAV 返回 ${res.status}`, content: '', byteLength: 0 };
+        return {
+            ok: false,
+            status: res.status,
+            message: await describeWebdavError(res, 'GET'),
+            content: '',
+            byteLength: 0,
+        };
     }
 
     if (!Number.isFinite(maxBytes) || maxBytes <= 0) {
@@ -433,7 +500,11 @@ export async function deleteWebdavFile(params) {
         return { ok: false, status: 404, message: '备份文件不存在或已被删除' };
     }
     if (!res.ok) {
-        return { ok: false, status: res.status, message: `WebDAV 返回 ${res.status}` };
+        return {
+            ok: false,
+            status: res.status,
+            message: await describeWebdavError(res, 'DELETE'),
+        };
     }
 
     return { ok: true, status: res.status, message: '删除成功' };
@@ -483,7 +554,7 @@ export async function uploadToWebdav(params) {
         }
         // 目录没建成就别重试 PUT：那只会拿同一个 409 盖掉真正的原因
         if (!dirResult.ok) {
-            const detail = dirResult.status ? `WebDAV 返回 ${dirResult.status}` : '地址无效';
+            const detail = dirResult.message || (dirResult.status ? `WebDAV MKCOL 返回 ${dirResult.status}` : '地址无效');
             return {
                 ok: false,
                 status: dirResult.status || res.status,
@@ -505,5 +576,10 @@ export async function uploadToWebdav(params) {
         return { ok: false, status: res.status, message: 'WebDAV 认证失败，请检查账号与密码', url: targetUrl };
     }
 
-    return { ok: false, status: res.status, message: `WebDAV 返回 ${res.status}`, url: targetUrl };
+    return {
+        ok: false,
+        status: res.status,
+        message: await describeWebdavError(res, 'PUT'),
+        url: targetUrl,
+    };
 }
