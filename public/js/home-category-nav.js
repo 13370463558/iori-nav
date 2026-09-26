@@ -195,6 +195,53 @@
       });
     }
 
+    function resolveCatalog(catalogValue) {
+      const normalized = String(catalogValue || 'all');
+      if (normalized === 'all') {
+        return { id: null, name: null, link: document.querySelector('a[href="?catalog=all"]') };
+      }
+
+      if (!/^\d+$/.test(normalized)) return null;
+      const link = Array.from(document.querySelectorAll('a[data-id]'))
+        .find(item => item.getAttribute('data-id') === normalized);
+      if (!link) return null;
+      return { id: normalized, name: link.textContent.trim(), link };
+    }
+
+    function getCatalogFromUrl() {
+      return new URLSearchParams(window.location.search).get('catalog') || 'all';
+    }
+
+    function updateCatalogUrl(catalogId, mode = 'push') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('catalog', catalogId || 'all');
+      const method = mode === 'replace' ? 'replaceState' : 'pushState';
+      window.history[method]({ catalog: catalogId || 'all' }, '', url);
+    }
+
+    function rememberCatalog(catalogId) {
+      const config = window.IORI_LAYOUT_CONFIG || {};
+      if (!config.rememberLastCategory) return;
+      const value = catalogId || 'all';
+      localStorage.setItem('iori_last_category', value);
+      setCookie('iori_last_category', value, 365);
+    }
+
+    function renderCatalog(catalog, options = {}) {
+      if (!catalog || !cardController || !window.IORI_SITES) return false;
+
+      const sites = cardController.getSitesForCatalog(catalog.id);
+      cardController.setActiveCatalogId(catalog.id);
+      cardController.renderSites(sites);
+      updateNavigationState(catalog.id);
+      Home.updateHeading?.(null, catalog.name, sites.length);
+      Home.reapplyLocalSearchFilter?.();
+
+      if (options.historyMode) updateCatalogUrl(catalog.id, options.historyMode);
+      if (options.remember !== false) rememberCatalog(catalog.id);
+      return true;
+    }
+
     document.addEventListener('click', async (e) => {
       const link = e.target.closest('a[href^="?catalog="]');
       if (!link) return;
@@ -203,13 +250,18 @@
 
       e.preventDefault();
       const href = link.getAttribute('href');
-      const catalogId = link.getAttribute('data-id');
-      const catalogName = link.textContent.trim();
+      const requestedCatalog = new URLSearchParams(href.slice(1)).get('catalog') || 'all';
+      const catalog = resolveCatalog(requestedCatalog);
 
       Home.closeSidebarMenu?.();
 
       const sitesGrid = document.getElementById('sitesGrid');
       if (!sitesGrid) return;
+
+      if (!catalog) {
+        console.warn('Ignoring invalid catalog navigation:', requestedCatalog);
+        return;
+      }
 
       sitesGrid.style.transition = 'opacity 0.15s ease-out';
       sitesGrid.style.opacity = '0';
@@ -224,24 +276,9 @@
 
         sitesGrid.style.transition = 'none';
         sitesGrid.style.opacity = '1';
-
-        const filteredSites = cardController.getSitesForCatalog(catalogId);
-        cardController.setActiveCatalogId(catalogId);
-        cardController.renderSites(filteredSites);
-        Home.updateHeading?.(null, catalogId ? catalogName : null, filteredSites.length);
-        updateNavigationState(catalogId);
-
-        const config = window.IORI_LAYOUT_CONFIG || {};
-        if (config.rememberLastCategory) {
-          if (catalogId) {
-            localStorage.setItem('iori_last_category', catalogId);
-            setCookie('iori_last_category', catalogId, 365);
-          } else {
-            localStorage.setItem('iori_last_category', 'all');
-            setCookie('iori_last_category', 'all', 365);
-          }
-        }
+        renderCatalog(catalog, { historyMode: 'push' });
       } catch (err) {
+        sitesGrid.style.opacity = '1';
         console.error('Client-side navigation failed:', err);
       }
     });
@@ -383,6 +420,15 @@
         localStorage.removeItem('iori_last_category');
       }
     }
+
+    window.addEventListener('popstate', () => {
+      const catalog = resolveCatalog(getCatalogFromUrl());
+      if (!catalog) {
+        renderCatalog(resolveCatalog('all'), { remember: false });
+        return;
+      }
+      renderCatalog(catalog, { remember: false });
+    });
 
     Home.updateNavigationState = updateNavigationState;
     restoreLastCategory();
