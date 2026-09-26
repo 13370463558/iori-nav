@@ -150,6 +150,16 @@ function isMissingParentStatus(status) {
     return status === 404 || status === 409;
 }
 
+function isPlainProxyNotFound(res) {
+    const contentType = String(res.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase();
+    const server = String(res.headers.get('Server') || '').trim().toLowerCase();
+    return res.status === 404
+        && contentType === 'text/plain'
+        && /(?:cloudflare|cdn|proxy)/i.test(server);
+}
+
+const WEBDAV_ENDPOINT_MESSAGE = '请检查 WebDAV 完整入口路径，不能只填写站点域名；当前响应更像是基础端点或路径不存在，而不是备份子目录缺失';
+
 /**
  * 逐级创建目录，405 视为目录已存在
  * 失败时回传出错的层级与状态码：只回 false 会把「b 段没权限」说成 PUT 的 409，
@@ -170,14 +180,40 @@ async function ensureWebdavDir(baseUrl, dir, authHeader) {
             headers: { Authorization: authHeader },
         });
 
-        // 201 新建成功；405 已存在
-        if (res.status === 201 || res.status === 405) continue;
+        if (res.status === 201) continue;
 
+        // 405 既可能表示目录已存在，也可能表示该端点不支持 MKCOL。
+        // 用 PROPFIND Depth: 0 验证目标确实是可访问的 WebDAV 资源，不能直接视为成功。
+        if (res.status === 405) {
+            const propfind = await webdavFetch(dirUrl, {
+                method: 'PROPFIND',
+                headers: {
+                    Authorization: authHeader,
+                    Depth: '0',
+                    'Content-Type': 'application/xml; charset=utf-8',
+                },
+                body: '<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/></d:prop></d:propfind>',
+            });
+
+            if (propfind.status === 200 || propfind.status === 207) continue;
+
+            const detail = await describeWebdavError(propfind, 'PROPFIND');
+            return {
+                ok: false,
+                status: propfind.status,
+                segment: path,
+                message: `WebDAV MKCOL 返回 405，随后验证目录失败: ${detail}`,
+            };
+        }
+
+        const detail = await describeWebdavError(res, 'MKCOL');
         return {
             ok: false,
             status: res.status,
             segment: path,
-            message: await describeWebdavError(res, 'MKCOL'),
+            message: res.status === 404
+                ? `${detail}；${WEBDAV_ENDPOINT_MESSAGE}（失败方法 MKCOL，目录层级「${path}」）`
+                : detail,
         };
     }
 
@@ -544,7 +580,21 @@ export async function uploadToWebdav(params) {
         return { ok: false, status: res.status, message: REDIRECT_MESSAGE, url: targetUrl };
     }
 
-    // 目录缺失：尝试创建后重试一次
+    // Cloudflare/CDN 返回的普通 text/plain 404 通常表示配置的 WebDAV 基础入口不存在，
+    // 不是备份子目录缺失。此时不能盲目 MKCOL，否则会掩盖真正的配置错误。
+    if (isPlainProxyNotFound(res)) {
+        const detail = await describeWebdavError(res, 'PUT');
+        const level = splitDirSegments(dir).join('/') || '基础端点';
+        return {
+            ok: false,
+            status: res.status,
+            upstreamFailure: true,
+            message: `${detail}；${WEBDAV_ENDPOINT_MESSAGE}（失败方法 PUT，目录层级「${level}」）`,
+            url: targetUrl,
+        };
+    }
+
+    // 确属目录缺失时，逐级创建后重试一次。
     if (isMissingParentStatus(res.status) && splitDirSegments(dir).length > 0) {
         let dirResult;
         try {
@@ -558,6 +608,7 @@ export async function uploadToWebdav(params) {
             return {
                 ok: false,
                 status: dirResult.status || res.status,
+                upstreamFailure: true,
                 message: `创建备份目录「${dirResult.segment}」失败: ${detail}`,
                 url: targetUrl,
             };

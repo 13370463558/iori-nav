@@ -306,6 +306,9 @@ test('POST /api/backup/webdav creates missing directory via MKCOL then retries P
       if (String(url).endsWith('/iori-nav/')) return jsonResponse(405, {});
       if (String(url).endsWith('/iori-nav/sub/')) return jsonResponse(201, {});
     }
+    if (init.method === 'PROPFIND' && String(url).endsWith('/iori-nav/')) {
+      return new Response('<?xml version="1.0"?><d:multistatus xmlns:d="DAV:"/>', { status: 207 });
+    }
     return jsonResponse(500, {});
   });
 
@@ -321,6 +324,142 @@ test('POST /api/backup/webdav creates missing directory via MKCOL then retries P
   assert.equal(mkcolCalls.length, 2);
   assert.equal(mkcolCalls[0].url, 'https://dav.example.com/iori-nav/');
   assert.equal(mkcolCalls[1].url, 'https://dav.example.com/iori-nav/sub/');
+});
+
+test('POST /api/backup/webdav reports Cloudflare text/plain PUT 404 as an invalid WebDAV endpoint without MKCOL', async () => {
+  const kv = createKv({ session_token: '1' });
+  const db = createDb({
+    settings: {
+      webdav_url: 'https://dav.example.com/?token=private-query',
+      webdav_username: 'user',
+      webdav_password: 'secret',
+      webdav_dir: 'iori-nav/sub',
+    },
+    sites: SAMPLE_DATA.sites,
+    categories: SAMPLE_DATA.categories,
+  });
+  const calls = stubFetchOnce(() => new Response('Not Found', {
+    status: 404,
+    statusText: 'Not Found',
+    headers: { 'Content-Type': 'text/plain; charset=UTF-8', Server: 'cloudflare' },
+  }));
+
+  const response = await onRequestPost({ request: buildRequest(), env: { NAV_AUTH: kv, NAV_DB: db } });
+  const body = await response.json();
+
+  assert.equal(response.status, 424);
+  assert.equal(calls.length, 1, '明显的代理/CDN 普通 404 不应触发 MKCOL');
+  assert.equal(calls[0].init.method, 'PUT');
+  assert.match(body.message, /WebDAV PUT 返回 404 Not Found/);
+  assert.match(body.message, /Content-Type text\/plain/);
+  assert.match(body.message, /Server cloudflare/);
+  assert.match(body.message, /完整入口路径/);
+  assert.match(body.message, /不能只填写站点域名/);
+  assert.match(body.message, /失败方法 PUT/);
+  assert.match(body.message, /目录层级「iori-nav\/sub」/);
+  assert.doesNotMatch(body.message, /private-query|secret|Authorization/);
+});
+
+test('POST /api/backup/webdav reports MKCOL 404 with the failing directory level', async () => {
+  const kv = createKv({ session_token: '1' });
+  const db = createDb({
+    settings: {
+      webdav_url: 'https://dav.example.com/?token=private-query',
+      webdav_password: 'secret',
+      webdav_dir: 'iori-nav/sub',
+    },
+    sites: SAMPLE_DATA.sites,
+    categories: SAMPLE_DATA.categories,
+  });
+  const calls = stubFetchOnce((_calls, url, init) => {
+    if (init.method === 'PUT') return jsonResponse(409, { message: 'parent missing' });
+    if (init.method === 'MKCOL' && String(url).includes('/iori-nav/')) {
+      return new Response('Not Found', {
+        status: 404,
+        statusText: 'Not Found',
+        headers: { 'Content-Type': 'text/plain', Server: 'cloudflare' },
+      });
+    }
+    return jsonResponse(500, {});
+  });
+
+  const response = await onRequestPost({ request: buildRequest(), env: { NAV_AUTH: kv, NAV_DB: db } });
+  const body = await response.json();
+
+  assert.equal(response.status, 424);
+  assert.equal(calls.filter(call => call.init.method === 'PUT').length, 1);
+  assert.equal(calls.filter(call => call.init.method === 'MKCOL').length, 1);
+  assert.match(body.message, /WebDAV MKCOL 返回 404 Not Found/);
+  assert.match(body.message, /完整入口路径/);
+  assert.match(body.message, /失败方法 MKCOL/);
+  assert.match(body.message, /目录层级「iori-nav」/);
+  assert.doesNotMatch(body.message, /private-query|secret|Authorization/);
+});
+
+test('POST /api/backup/webdav does not treat MKCOL 405 as existing when PROPFIND says missing', async () => {
+  const kv = createKv({ session_token: '1' });
+  const db = createDb({
+    settings: {
+      webdav_url: 'https://dav.example.com/',
+      webdav_password: 'secret',
+      webdav_dir: 'iori-nav',
+    },
+    sites: SAMPLE_DATA.sites,
+    categories: SAMPLE_DATA.categories,
+  });
+  const calls = stubFetchOnce((_calls, _url, init) => {
+    if (init.method === 'PUT') return jsonResponse(409, { message: 'parent missing' });
+    if (init.method === 'MKCOL') return new Response(null, { status: 405, statusText: 'Method Not Allowed' });
+    if (init.method === 'PROPFIND') return new Response('Not Found', {
+      status: 404,
+      statusText: 'Not Found',
+      headers: { 'Content-Type': 'text/plain' },
+    });
+    return jsonResponse(500, {});
+  });
+
+  const response = await onRequestPost({ request: buildRequest(), env: { NAV_AUTH: kv, NAV_DB: db } });
+  const body = await response.json();
+
+  assert.equal(response.status, 424);
+  assert.equal(calls.filter(call => call.init.method === 'PUT').length, 1, '验证目录不存在后不应重试 PUT');
+  assert.deepEqual(calls.map(call => call.init.method), ['PUT', 'MKCOL', 'PROPFIND']);
+  assert.equal(calls[2].init.headers.Depth, '0');
+  assert.match(body.message, /MKCOL 返回 405/);
+  assert.match(body.message, /PROPFIND 返回 404 Not Found/);
+  assert.match(body.message, /iori-nav/);
+});
+
+test('POST /api/backup/webdav accepts MKCOL 405 only after PROPFIND verifies the directory', async () => {
+  const kv = createKv({ session_token: '1' });
+  const db = createDb({
+    settings: {
+      webdav_url: 'https://dav.example.com/',
+      webdav_password: 'secret',
+      webdav_dir: 'iori-nav',
+    },
+    sites: SAMPLE_DATA.sites,
+    categories: SAMPLE_DATA.categories,
+  });
+  let putCount = 0;
+  const calls = stubFetchOnce((_calls, _url, init) => {
+    if (init.method === 'PUT') {
+      putCount += 1;
+      return putCount === 1
+        ? jsonResponse(409, { message: 'parent missing' })
+        : jsonResponse(201, { ok: true });
+    }
+    if (init.method === 'MKCOL') return new Response(null, { status: 405, statusText: 'Method Not Allowed' });
+    if (init.method === 'PROPFIND') return new Response('<?xml version="1.0"?><d:multistatus xmlns:d="DAV:"/>', { status: 207 });
+    return jsonResponse(500, {});
+  });
+
+  const response = await onRequestPost({ request: buildRequest(), env: { NAV_AUTH: kv, NAV_DB: db } });
+  const body = await response.json();
+
+  assert.equal(response.status, 200, body.message);
+  assert.equal(putCount, 2);
+  assert.deepEqual(calls.map(call => call.init.method), ['PUT', 'MKCOL', 'PROPFIND', 'PUT']);
 });
 
 test('POST /api/backup/webdav preserves an upstream HTML 502 summary in JSON with HTTP 424', async () => {

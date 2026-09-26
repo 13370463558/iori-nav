@@ -21,6 +21,7 @@ const BACKUP_LIST_LIMIT = 10;
 // 上游原始状态仍保留在 JSON message 中；本地校验、认证、404、413 等继续使用各自语义。
 function webdavFailureStatus(result) {
   if (result.tooLarge) return 413;
+  if (result.upstreamFailure) return 424;
   if (result.status === 404) return 404;
   return 424;
 }
