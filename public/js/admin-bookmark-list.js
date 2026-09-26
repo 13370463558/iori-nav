@@ -9,7 +9,6 @@
   const pageSizeSelect = document.getElementById('pageSizeSelect');
   const SEARCH_DEBOUNCE_MS = 300;
   const LONG_PRESS_MS = 400;
-  const POINTER_MOVE_TOLERANCE_PX = 10;
   const REORDER_BLOCKED_MESSAGE = '搜索状态下无法调整排序，请清除搜索关键词后重试';
 
   let currentPage = 1;
@@ -289,123 +288,62 @@
     const cards = Array.from(document.querySelectorAll('#configGrid .site-card'));
     const reorderBlocked = Boolean(currentSearchKeyword);
     let draggedItem = null;
-    let pointerId = null;
-    let longPressTimer = null;
-    let startX = 0;
-    let startY = 0;
-    let pointerDragging = false;
-    let pointerOrderChanged = false;
     let initialOrder = [];
+    let pendingCard = null;
+    let pendingPointerId = null;
+    let longPressTimer = null;
+    let selectedCard = null;
+    let selectionTimeout = null;
 
     const clearDropFeedback = () => {
-      cards.forEach(card => card.classList.remove('border-2', 'border-accent-500', 'bookmark-drop-target'));
+      cards.forEach(card => card.classList.remove('border-2', 'border-accent-500'));
     };
 
-    const clearLongPressTimer = () => {
-      if (longPressTimer !== null) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
+    const clearPendingPress = () => {
+      if (longPressTimer !== null) clearTimeout(longPressTimer);
+      longPressTimer = null;
+      pendingCard?.classList.remove('bookmark-long-press-pending');
+      pendingCard = null;
+      pendingPointerId = null;
+    };
+
+    const cancelSelection = () => {
+      clearPendingPress();
+      if (selectionTimeout !== null) clearTimeout(selectionTimeout);
+      selectionTimeout = null;
+      selectedCard?.classList.remove('bookmark-swap-selected');
+      selectedCard = null;
+      configGrid.classList.remove('bookmark-swap-active');
+    };
+
+    const suppressNextCardOpen = () => {
+      suppressCardClick = true;
+      setTimeout(() => {
+        suppressCardClick = false;
+      }, 0);
+    };
+
+    const selectCard = card => {
+      cancelSelection();
+      selectedCard = card;
+      card.classList.add('bookmark-swap-selected');
+      configGrid.classList.add('bookmark-swap-active');
+      window.showMessage('已选中，请点击目标书签换位', 'info');
+      selectionTimeout = setTimeout(cancelSelection, 10000);
+    };
+
+    const swapCards = (source, target) => {
+      const sourceNext = source.nextSibling;
+      const targetNext = target.nextSibling;
+      if (sourceNext === target) {
+        target.after(source);
+      } else if (targetNext === source) {
+        source.after(target);
+      } else {
+        target.before(source);
+        if (sourceNext) sourceNext.before(target);
+        else configGrid.appendChild(target);
       }
-    };
-
-    const releasePointerCapture = card => {
-      if (pointerId === null || !card.hasPointerCapture?.(pointerId)) return;
-      try {
-        card.releasePointerCapture(pointerId);
-      } catch {
-        // 捕获可能已由浏览器释放。
-      }
-    };
-
-    const resetPointerState = (card, suppressClick = false) => {
-      clearLongPressTimer();
-      clearDropFeedback();
-      card?.classList.remove('bookmark-long-press-pending', 'bookmark-pointer-dragging', 'bookmark-pointer-hit-testing');
-      configGrid.classList.remove('bookmark-reordering');
-      releasePointerCapture(card);
-      if (suppressClick) {
-        suppressCardClick = true;
-        setTimeout(() => {
-          suppressCardClick = false;
-        }, 0);
-      }
-      draggedItem = null;
-      pointerId = null;
-      pointerDragging = false;
-      pointerOrderChanged = false;
-      pointerDropTarget = null;
-      initialOrder = [];
-    };
-
-    const DROP_TARGET_MAX_DISTANCE_PX = 72;
-    let pointerDropTarget = null;
-
-    const distanceToRect = (clientX, clientY, rect) => {
-      const dx = Math.max(rect.left - clientX, 0, clientX - rect.right);
-      const dy = Math.max(rect.top - clientY, 0, clientY - rect.bottom);
-      return Math.hypot(dx, dy);
-    };
-
-    const findPointerDropTarget = (card, clientX, clientY) => {
-      const candidates = Array.from(configGrid.querySelectorAll('.site-card'))
-        .filter(candidate => candidate !== card && candidate.parentElement === configGrid)
-        .map(candidate => ({ candidate, rect: candidate.getBoundingClientRect() }))
-        .filter(({ rect }) => rect.width > 0 && rect.height > 0);
-
-      const containing = candidates.find(({ rect }) => (
-        clientX >= rect.left && clientX <= rect.right &&
-        clientY >= rect.top && clientY <= rect.bottom
-      ));
-      if (containing) return containing;
-
-      const nearest = candidates
-        .map(entry => ({ ...entry, distance: distanceToRect(clientX, clientY, entry.rect) }))
-        .sort((left, right) => left.distance - right.distance)[0];
-      if (nearest && nearest.distance <= DROP_TARGET_MAX_DISTANCE_PX) return nearest;
-
-      card.classList.add('bookmark-pointer-hit-testing');
-      const elementTarget = document.elementFromPoint(clientX, clientY)?.closest?.('#configGrid .site-card');
-      card.classList.remove('bookmark-pointer-hit-testing');
-      if (!elementTarget || elementTarget === card || elementTarget.parentElement !== configGrid) return null;
-      return { candidate: elementTarget, rect: elementTarget.getBoundingClientRect() };
-    };
-
-    const setPointerDropTarget = target => {
-      if (pointerDropTarget === target) return;
-      clearDropFeedback();
-      pointerDropTarget = target;
-      pointerDropTarget?.classList.add('border-2', 'border-accent-500', 'bookmark-drop-target');
-    };
-
-    const moveDraggedCard = (card, clientX, clientY) => {
-      const match = findPointerDropTarget(card, clientX, clientY);
-      if (!match) return false;
-
-      const { candidate: target, rect } = match;
-      setPointerDropTarget(target);
-
-      const allCards = Array.from(configGrid.querySelectorAll('.site-card'));
-      const draggedIndex = allCards.indexOf(card);
-      const targetIndex = allCards.indexOf(target);
-      const movingForward = draggedIndex < targetIndex;
-      const draggedRect = card.getBoundingClientRect();
-      const draggedCenterX = draggedRect.left + draggedRect.width / 2;
-      const draggedCenterY = draggedRect.top + draggedRect.height / 2;
-      const targetCenterX = rect.left + rect.width / 2;
-      const targetCenterY = rect.top + rect.height / 2;
-      // 卡片通常宽大于高，不能用卡片宽高判断列表方向。
-      // 根据拖动卡片与目标卡片中心点的相对位置判断同排或跨行。
-      const primarilyVertical = Math.abs(targetCenterY - draggedCenterY) >= Math.abs(targetCenterX - draggedCenterX);
-      const crossedCenter = primarilyVertical
-        ? (movingForward ? clientY >= targetCenterY : clientY <= targetCenterY)
-        : (movingForward ? clientX >= targetCenterX : clientX <= targetCenterX);
-
-      if (crossedCenter) {
-        if (movingForward) target.after(card);
-        else target.before(card);
-      }
-      pointerOrderChanged = initialOrder.join(',') !== Array.from(configGrid.querySelectorAll('.site-card'), item => item.dataset.id).join(',');
-      return true;
     };
 
     cards.forEach(card => {
@@ -418,7 +356,7 @@
           window.showMessage(REORDER_BLOCKED_MESSAGE, 'error');
           return;
         }
-
+        cancelSelection();
         draggedItem = this;
         initialOrder = Array.from(configGrid.querySelectorAll('.site-card'), item => item.dataset.id);
         this.classList.add('opacity-50', 'scale-95');
@@ -448,7 +386,6 @@
         event.preventDefault();
         clearDropFeedback();
         if (!draggedItem || draggedItem === this) return;
-
         const beforeOrder = initialOrder.join(',');
         const allCards = Array.from(configGrid.querySelectorAll('.site-card'));
         if (allCards.indexOf(draggedItem) < allCards.indexOf(this)) this.after(draggedItem);
@@ -458,59 +395,57 @@
       });
 
       card.addEventListener('pointerdown', function (event) {
-        if (event.pointerType === 'mouse' || !event.isPrimary || pointerId !== null) return;
+        if (event.pointerType === 'mouse' || !event.isPrimary || selectedCard || pendingCard) return;
         if (event.target.closest('button')) return;
         if (reorderBlocked) {
           window.showMessage(REORDER_BLOCKED_MESSAGE, 'error');
           return;
         }
-
-        pointerId = event.pointerId;
-        startX = event.clientX;
-        startY = event.clientY;
-        draggedItem = this;
-        initialOrder = Array.from(configGrid.querySelectorAll('.site-card'), item => item.dataset.id);
+        pendingCard = this;
+        pendingPointerId = event.pointerId;
         this.classList.add('bookmark-long-press-pending');
         longPressTimer = setTimeout(() => {
+          if (pendingCard !== this || pendingPointerId !== event.pointerId) return;
+          pendingCard = null;
+          pendingPointerId = null;
           longPressTimer = null;
-          if (pointerId !== event.pointerId || draggedItem !== this) return;
-          pointerDragging = true;
           this.classList.remove('bookmark-long-press-pending');
-          this.classList.add('bookmark-pointer-dragging');
-          configGrid.classList.add('bookmark-reordering');
-          this.setPointerCapture?.(event.pointerId);
+          selectCard(this);
+          suppressNextCardOpen();
         }, LONG_PRESS_MS);
       });
 
-      card.addEventListener('pointermove', function (event) {
-        if (event.pointerId !== pointerId || draggedItem !== this) return;
-        if (!pointerDragging) {
-          if (Math.hypot(event.clientX - startX, event.clientY - startY) > POINTER_MOVE_TOLERANCE_PX) {
-            resetPointerState(this);
-          }
-          return;
-        }
-
-        event.preventDefault();
-        moveDraggedCard(this, event.clientX, event.clientY);
-      });
-
       card.addEventListener('pointerup', function (event) {
-        if (event.pointerId !== pointerId || draggedItem !== this) return;
-        if (pointerDragging && !pointerDropTarget) moveDraggedCard(this, event.clientX, event.clientY);
-        const shouldSave = pointerDragging && pointerOrderChanged;
-        const shouldSuppressClick = pointerDragging;
-        resetPointerState(this, shouldSuppressClick);
-        if (shouldSave) saveSortOrder();
+        if (pendingCard === this && pendingPointerId === event.pointerId) clearPendingPress();
       });
 
       card.addEventListener('pointercancel', function (event) {
-        if (event.pointerId === pointerId && draggedItem === this) resetPointerState(this, pointerDragging);
+        if (pendingCard === this && pendingPointerId === event.pointerId) clearPendingPress();
+        cancelSelection();
       });
 
-      card.addEventListener('lostpointercapture', function (event) {
-        if (event.pointerId === pointerId && draggedItem === this) resetPointerState(this, pointerDragging);
-      });
+      card.addEventListener('click', function (event) {
+        if (!selectedCard || event.target.closest('button')) return;
+        event.preventDefault();
+        event.stopPropagation();
+        suppressNextCardOpen();
+        if (selectedCard === this) {
+          cancelSelection();
+          return;
+        }
+        const source = selectedCard;
+        cancelSelection();
+        swapCards(source, this);
+        saveSortOrder();
+      }, true);
+    });
+
+    configGrid.addEventListener('click', event => {
+      if (selectedCard && event.target === configGrid) cancelSelection();
+    });
+
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') cancelSelection();
     });
   }
 

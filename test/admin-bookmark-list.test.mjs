@@ -11,7 +11,6 @@ function createHarness({ filtered = false } = {}) {
   const requests = [];
   const messages = [];
   const opened = [];
-  let hitTarget = null;
 
   function makeClassList(element) {
     const classes = new Set();
@@ -39,7 +38,10 @@ function createHarness({ filtered = false } = {}) {
       draggable: false,
       isContentEditable: false,
       classList: null,
-      addEventListener(type, handler) { (listeners[type] ||= []).push(handler); },
+      addEventListener(type, handler, options = false) {
+        const capture = options === true || options?.capture === true;
+        (listeners[type] ||= []).push({ handler, capture });
+      },
       dispatch(type, event = {}) {
         const payload = {
           type,
@@ -53,7 +55,9 @@ function createHarness({ filtered = false } = {}) {
           stopPropagation() { this.propagationStopped = true; },
           ...event,
         };
-        for (const handler of listeners[type] || []) handler.call(element, payload);
+        const handlers = listeners[type] || [];
+        for (const { handler } of handlers.filter(item => item.capture)) handler.call(element, payload);
+        for (const { handler } of handlers.filter(item => !item.capture)) handler.call(element, payload);
         return payload;
       },
       appendChild(child) {
@@ -87,22 +91,17 @@ function createHarness({ filtered = false } = {}) {
         return null;
       },
       setAttribute() {},
-      setPointerCapture(id) { element._capture = id; },
-      hasPointerCapture(id) { return element._capture === id; },
-      releasePointerCapture(id) { if (element._capture === id) element._capture = null; },
-      getBoundingClientRect() {
-        return element._rect || { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
-      },
-      setBoundingClientRect(rect) {
-        element._rect = {
-          ...rect,
-          right: rect.right ?? rect.left + rect.width,
-          bottom: rect.bottom ?? rect.top + rect.height,
-        };
-      },
+      hasPointerCapture() { return false; },
     };
     element.classList = makeClassList(element);
     let className = '';
+    Object.defineProperty(element, 'nextSibling', {
+      get() {
+        if (!element.parentElement) return null;
+        const index = element.parentElement.children.indexOf(element);
+        return element.parentElement.children[index + 1] || null;
+      },
+    });
     Object.defineProperty(element, 'className', {
       get() { return className; },
       set(value) {
@@ -137,8 +136,15 @@ function createHarness({ filtered = false } = {}) {
     totalPages: makeElement(),
   };
 
+  const documentListeners = {};
   const document = {
     body: makeElement('body'),
+    addEventListener(type, handler) { (documentListeners[type] ||= []).push(handler); },
+    dispatch(type, event = {}) {
+      const payload = { type, target: document, preventDefault() {}, stopPropagation() {}, ...event };
+      for (const handler of documentListeners[type] || []) handler.call(document, payload);
+      return payload;
+    },
     getElementById(id) { return nodes[id] || null; },
     createElement: makeElement,
     querySelectorAll(selector) {
@@ -146,7 +152,6 @@ function createHarness({ filtered = false } = {}) {
       if (selector === '.edit-btn' || selector === '.del-btn') return [];
       return [];
     },
-    elementFromPoint() { return hitTarget; },
     execCommand() {},
   };
 
@@ -194,10 +199,6 @@ function createHarness({ filtered = false } = {}) {
       categoryFilter.dispatch('change', { target: categoryFilter });
       await flush();
     }
-    configGrid.children.forEach((card, index) => {
-      const top = index * 120;
-      card.setBoundingClientRect({ left: 0, top, width: 240, height: 100 });
-    });
     return configGrid.children;
   }
 
@@ -217,108 +218,171 @@ function createHarness({ filtered = false } = {}) {
     timers,
     load,
     runLongPress,
-    setHitTarget(target) { hitTarget = target; },
     flush,
   };
 }
 
-test('触摸长按 400ms 后进入拖动状态', async () => {
+test('触摸长按 400ms 后选中卡片并显示换位提示', async () => {
   const harness = createHarness();
   const [card] = await harness.load();
 
   card.dispatch('pointerdown');
-  assert.equal(card.classList.contains('bookmark-pointer-dragging'), false);
+  assert.equal(card.classList.contains('bookmark-swap-selected'), false);
   harness.runLongPress();
 
-  assert.equal(card.classList.contains('bookmark-pointer-dragging'), true);
-  assert.equal(harness.configGrid.classList.contains('bookmark-reordering'), true);
-  assert.equal(card.hasPointerCapture(1), true);
+  assert.equal(card.classList.contains('bookmark-swap-selected'), true);
+  assert.equal(harness.configGrid.classList.contains('bookmark-swap-active'), true);
+  assert.equal(card.hasPointerCapture(1), false);
+  assert.deepEqual(harness.messages.at(-1), {
+    message: '已选中，请点击目标书签换位',
+    type: 'info',
+  });
 });
 
-test('未达到长按时间时松手不进入拖动也不保存', async () => {
+test('未达到长按时间时松手不选中也不保存', async () => {
   const harness = createHarness();
   const [card] = await harness.load();
-  const initialPosts = harness.requests.filter(call => call.url === '/api/config/batch').length;
 
   card.dispatch('pointerdown');
   card.dispatch('pointerup');
 
-  assert.equal(card.classList.contains('bookmark-pointer-dragging'), false);
-  assert.equal(harness.requests.filter(call => call.url === '/api/config/batch').length, initialPosts);
+  assert.equal(card.classList.contains('bookmark-swap-selected'), false);
+  assert.equal(harness.requests.some(call => call.url === '/api/config/batch'), false);
 });
 
-test('长按拖动到其他卡片时实时调整 DOM 顺序，松手后保存一次', async () => {
+test('长按选中后点击目标卡片交换位置并只保存一次', async () => {
   const harness = createHarness();
   const [first, second, third] = await harness.load();
 
   first.dispatch('pointerdown');
   harness.runLongPress();
-  harness.setHitTarget(third);
-  first.dispatch('pointermove', { clientX: 30, clientY: 290 });
-
-  assert.deepEqual(harness.configGrid.children.map(card => card.dataset.id), [2, 3, 1]);
-  first.dispatch('pointerup', { clientX: 30, clientY: 290 });
+  third.dispatch('click');
+  assert.deepEqual(harness.configGrid.children.map(card => card.dataset.id), [3, 2, 1]);
   await harness.flush();
-
   const saves = harness.requests.filter(call => call.url === '/api/config/batch');
   assert.equal(saves.length, 1);
-  assert.deepEqual(JSON.parse(saves[0].init.body).payload.orderedIds, [2, 3, 1]);
-  assert.equal(first.classList.contains('bookmark-pointer-dragging'), false);
-  assert.equal(harness.configGrid.classList.contains('bookmark-reordering'), false);
-  assert.equal(first.hasPointerCapture(1), false);
-  assert.equal(second.classList.contains('bookmark-drop-target'), false);
+  assert.deepEqual(JSON.parse(saves[0].init.body).payload.orderedIds, [3, 2, 1]);
+  assert.equal(first.classList.contains('bookmark-swap-selected'), false);
+  assert.equal(harness.configGrid.classList.contains('bookmark-swap-active'), false);
 });
 
-test('pointercancel 清理拖动状态并且不保存', async () => {
+test('再次点击源卡片取消选中且不保存', async () => {
   const harness = createHarness();
-  const [first, second] = await harness.load();
+  const [first] = await harness.load();
 
   first.dispatch('pointerdown');
   harness.runLongPress();
-  harness.setHitTarget(second);
-  first.dispatch('pointermove', { clientX: 20, clientY: 50 });
+  first.dispatch('click');
+
+  assert.equal(first.classList.contains('bookmark-swap-selected'), false);
+  assert.equal(harness.requests.some(call => call.url === '/api/config/batch'), false);
+});
+
+test('pointercancel 取消选中且不保存', async () => {
+  const harness = createHarness();
+  const [first] = await harness.load();
+
+  first.dispatch('pointerdown');
+  harness.runLongPress();
   first.dispatch('pointercancel');
 
+  assert.equal(first.classList.contains('bookmark-swap-selected'), false);
   assert.equal(harness.requests.some(call => call.url === '/api/config/batch'), false);
-  assert.equal(first.classList.contains('bookmark-pointer-dragging'), false);
-  assert.equal(first.hasPointerCapture(1), false);
 });
 
-test('完成拖动后紧随的 click 不打开书签', async () => {
+test('点击列表空白处取消选中', async () => {
+  const harness = createHarness();
+  const [first] = await harness.load();
+
+  first.dispatch('pointerdown');
+  harness.runLongPress();
+  harness.configGrid.dispatch('click', { target: harness.configGrid });
+
+  assert.equal(first.classList.contains('bookmark-swap-selected'), false);
+});
+
+test('选中状态下点击编辑删除按钮不触发换位', async () => {
+  const harness = createHarness();
+  const [first, second] = await harness.load();
+  const button = harness.sandbox.document.createElement('button');
+
+  first.dispatch('pointerdown');
+  harness.runLongPress();
+  second.dispatch('click', { target: button });
+
+  assert.deepEqual(harness.configGrid.children.map(card => card.dataset.id), [1, 2, 3]);
+  assert.equal(harness.requests.some(call => call.url === '/api/config/batch'), false);
+  assert.equal(first.classList.contains('bookmark-swap-selected'), true);
+});
+
+test('成功换位后紧随的卡片点击不打开链接', async () => {
   const harness = createHarness();
   const [first, second] = await harness.load();
 
   first.dispatch('pointerdown');
   harness.runLongPress();
-  harness.setHitTarget(second);
-  first.dispatch('pointermove', { clientX: 10, clientY: 40 });
-  first.dispatch('pointerup');
-  first.dispatch('click');
+  second.dispatch('click');
 
   assert.equal(harness.opened.length, 0);
 });
 
-test('分类筛选状态允许触摸长按拖动并携带分类和分页参数', async () => {
+
+test('取消键和选中超时都会清理选中状态', async () => {
+  const escapeHarness = createHarness();
+  const [escapeCard] = await escapeHarness.load();
+  escapeCard.dispatch('pointerdown');
+  escapeHarness.runLongPress();
+  escapeHarness.sandbox.document.dispatch('keydown', { key: 'Escape' });
+  assert.equal(escapeCard.classList.contains('bookmark-swap-selected'), false);
+
+  const timeoutHarness = createHarness();
+  const [timeoutCard] = await timeoutHarness.load();
+  timeoutCard.dispatch('pointerdown');
+  timeoutHarness.runLongPress();
+  const timeout = timeoutHarness.timers.find(item => item.delay === 10000 && !item.cleared);
+  assert.ok(timeout, '应创建选中超时计时器');
+  timeout.fn();
+  assert.equal(timeoutCard.classList.contains('bookmark-swap-selected'), false);
+});
+
+test('搜索状态禁止触摸换位和桌面拖拽排序', async () => {
+  const harness = createHarness();
+  const cards = await harness.load();
+  harness.sandbox.document.getElementById('searchInput').value = '关键词';
+  harness.sandbox.document.getElementById('searchInput').dispatch('input');
+  const debounce = harness.timers.find(item => item.delay === 300 && !item.cleared);
+  assert.ok(debounce, '应创建搜索防抖计时器');
+  debounce.fn();
+  await harness.flush();
+
+  const [first] = harness.configGrid.children;
+  first.dispatch('pointerdown');
+  assert.equal(harness.timers.some(item => item.delay === 400 && !item.cleared), false);
+  assert.equal(first.draggable, false);
+  const dataTransfer = { effectAllowed: '', setData() {} };
+  const dragEvent = first.dispatch('dragstart', { dataTransfer });
+  assert.equal(dragEvent.defaultPrevented, true);
+  assert.equal(harness.requests.some(call => call.url === '/api/config/batch'), false);
+  assert.ok(harness.messages.some(item => item.message.includes('搜索状态下无法调整排序')));
+});
+
+test('分类筛选状态允许触摸换位并携带分类和分页参数', async () => {
   const harness = createHarness({ filtered: true });
   const [first, second, third] = await harness.load();
 
-  assert.equal(first.draggable, true);
   first.dispatch('pointerdown');
   harness.runLongPress();
-  harness.setHitTarget(third);
-  first.dispatch('pointermove', { clientX: 30, clientY: 290 });
-  first.dispatch('pointerup', { clientX: 30, clientY: 290 });
+  third.dispatch('click');
   await harness.flush();
 
   const saves = harness.requests.filter(call => call.url === '/api/config/batch');
   assert.equal(saves.length, 1);
   assert.deepEqual(JSON.parse(saves[0].init.body).payload, {
     catalogId: '7',
-    orderedIds: [2, 3, 1],
+    orderedIds: [3, 2, 1],
     page: 1,
     pageSize: 50,
   });
-  assert.equal(second.classList.contains('bookmark-drop-target'), false);
 });
 
 test('分类筛选状态允许桌面 HTML5 拖动排序', async () => {
