@@ -23,6 +23,29 @@
     ui.syncPasswordField?.(currentSettings);
   }
 
+  function summarizeResponseText(text) {
+    const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!normalized) return '空响应';
+    return normalized.length > 240 ? `${normalized.slice(0, 240)}…` : normalized;
+  }
+
+  async function parseApiResponse(res) {
+    const text = await res.text();
+    let data = null;
+    if (text.trim()) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = null;
+      }
+    }
+
+    if (data && typeof data === 'object') return data;
+
+    const status = `${res.status}${res.statusText ? ` ${res.statusText}` : ''}`;
+    throw new Error(`HTTP ${status}: ${summarizeResponseText(text)}`);
+  }
+
   /**
    * 只保存 WebDAV 字段。备份与恢复都以当前可见表单为准，每次操作前都落库，
    * 避免多标签页修改配置后，界面显示的目标与后端实际使用的目标不一致。
@@ -46,7 +69,7 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
+    const data = await parseApiResponse(res);
     if (data.code !== 200) {
       throw new Error(data.message || '保存 WebDAV 配置失败');
     }
@@ -69,7 +92,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ webdav_password: null }),
       });
-      const data = await res.json();
+      const data = await parseApiResponse(res);
       if (data.code !== 200) {
         throw new Error(data.message || '清除密码失败');
       }
@@ -106,7 +129,7 @@
       await saveWebdavConfig(formConfig);
 
       const res = await fetch('/api/backup/webdav', { method: 'POST' });
-      const data = await res.json();
+      const data = await parseApiResponse(res);
       if (data.code === 200) {
         const info = data.data || {};
         ui.showStatus?.(`备份成功：${info.filename}（${info.siteCount} 个书签，${info.categoryCount} 个分类）`, 'success');
@@ -207,7 +230,7 @@
       const res = await fetch(`/api/backup/webdav?filename=${encodeURIComponent(safeFilename)}`, {
         method: 'DELETE',
       });
-      const data = await res.json();
+      const data = await parseApiResponse(res);
       if (data.code !== 200) {
         throw new Error(data.message || '删除备份失败');
       }
@@ -254,7 +277,7 @@
 
     try {
       const res = await fetch('/api/backup/webdav?limit=10');
-      const data = await res.json();
+      const data = await parseApiResponse(res);
       const { restoreLoading } = getBackupRefs();
       if (restoreLoading) restoreLoading.style.display = 'none';
 
@@ -292,7 +315,7 @@
 
     try {
       const res = await fetch(`/api/backup/webdav?filename=${encodeURIComponent(filename)}`);
-      const data = await res.json();
+      const data = await parseApiResponse(res);
       if (data.code !== 200 || !data.data) {
         ui.setRestoreError?.(data.message || '恢复失败');
         return;

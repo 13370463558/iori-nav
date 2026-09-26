@@ -334,6 +334,119 @@ test('backup saves the visible WebDAV target even when currentSettings already m
   });
 });
 
+test('backup shows HTTP status and response summary for non-JSON API errors', async () => {
+  const source = readBackupSource();
+  const defaultsSource = readFileSync(resolve('public/js/admin-settings-defaults.js'), 'utf8');
+  const statuses = [];
+
+  const makeEl = () => ({
+    value: '', textContent: '', innerHTML: '', placeholder: '', disabled: false,
+    style: {}, classList: { add() {}, remove() {} },
+    addEventListener(type, fn) { (this._on ||= {})[type] = fn; },
+    querySelectorAll: () => [], appendChild() {},
+  });
+  const nodes = {};
+  const sandbox = {
+    window: {
+      showMessage() {},
+      AdminSettings: {
+        currentSettings: { has_webdav_password: true },
+        backupUi: { showStatus: (message, type) => statuses.push({ message, type }) },
+      },
+    },
+    document: {
+      getElementById: id => (nodes[id] ||= makeEl()),
+      getElementsByName: () => [],
+      querySelectorAll: () => [],
+      querySelector: () => null,
+      createElement: makeEl,
+      body: { classList: { add() {}, remove() {} } },
+    },
+    fetch: async url => {
+      if (url === '/api/settings') {
+        return new Response(JSON.stringify({ code: 200 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response('<html>Cloudflare upstream failure</html>', {
+        status: 502,
+        statusText: 'Bad Gateway',
+        headers: { 'Content-Type': 'text/html' },
+      });
+    },
+    Response, Request, console,
+  };
+  sandbox.globalThis = sandbox;
+  vm.runInNewContext(defaultsSource, sandbox, { filename: 'public/js/admin-settings-defaults.js' });
+  vm.runInNewContext(source, sandbox, { filename: 'public/js/admin-settings-backup.js' });
+  sandbox.window.AdminSettings.backupUi.showStatus = (message, type) => statuses.push({ message, type });
+
+  sandbox.window.AdminSettings.backup.getBackupRefs();
+  nodes.webdavUrl.value = 'https://dav.example.com/';
+  nodes.webdavUsername.value = 'user';
+  nodes.webdavDir.value = 'nav';
+
+  await sandbox.window.AdminSettings.backup.runBackup();
+
+  const error = statuses.find(item => item.type === 'error');
+  assert.ok(error, '应显示备份失败状态');
+  assert.match(error.message, /HTTP 502 Bad Gateway/);
+  assert.match(error.message, /Cloudflare upstream failure/);
+});
+
+test('backup reports an empty non-JSON response without throwing a JSON parse error', async () => {
+  const source = readBackupSource();
+  const defaultsSource = readFileSync(resolve('public/js/admin-settings-defaults.js'), 'utf8');
+  const statuses = [];
+
+  const makeEl = () => ({
+    value: '', textContent: '', innerHTML: '', placeholder: '', disabled: false,
+    style: {}, classList: { add() {}, remove() {} },
+    addEventListener(type, fn) { (this._on ||= {})[type] = fn; },
+    querySelectorAll: () => [], appendChild() {},
+  });
+  const nodes = {};
+  const sandbox = {
+    window: {
+      showMessage() {},
+      AdminSettings: {
+        currentSettings: { has_webdav_password: true },
+        backupUi: { showStatus: (message, type) => statuses.push({ message, type }) },
+      },
+    },
+    document: {
+      getElementById: id => (nodes[id] ||= makeEl()),
+      getElementsByName: () => [],
+      querySelectorAll: () => [],
+      querySelector: () => null,
+      createElement: makeEl,
+      body: { classList: { add() {}, remove() {} } },
+    },
+    fetch: async url => url === '/api/settings'
+      ? new Response(JSON.stringify({ code: 200 }), { status: 200 })
+      : new Response(null, { status: 504, statusText: 'Gateway Timeout' }),
+    Response, Request, console,
+  };
+  sandbox.globalThis = sandbox;
+  vm.runInNewContext(defaultsSource, sandbox, { filename: 'public/js/admin-settings-defaults.js' });
+  vm.runInNewContext(source, sandbox, { filename: 'public/js/admin-settings-backup.js' });
+  sandbox.window.AdminSettings.backupUi.showStatus = (message, type) => statuses.push({ message, type });
+
+  sandbox.window.AdminSettings.backup.getBackupRefs();
+  nodes.webdavUrl.value = 'https://dav.example.com/';
+  nodes.webdavUsername.value = 'user';
+  nodes.webdavDir.value = 'nav';
+
+  await sandbox.window.AdminSettings.backup.runBackup();
+
+  const error = statuses.find(item => item.type === 'error');
+  assert.ok(error, '应显示备份失败状态');
+  assert.match(error.message, /HTTP 504 Gateway Timeout/);
+  assert.match(error.message, /空响应/);
+  assert.doesNotMatch(error.message, /JSON/);
+});
+
 test('unrelated settings refresh does not overwrite unsaved WebDAV inputs', () => {
   const defaultsSource = readFileSync(resolve('public/js/admin-settings-defaults.js'), 'utf8');
   const backupSource = readBackupSource();
