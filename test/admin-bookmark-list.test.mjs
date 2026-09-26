@@ -53,11 +53,20 @@ function createHarness({ filtered = false } = {}) {
           clientY: 0,
           preventDefault() { this.defaultPrevented = true; },
           stopPropagation() { this.propagationStopped = true; },
+          stopImmediatePropagation() { this.immediatePropagationStopped = true; this.propagationStopped = true; },
           ...event,
         };
         const handlers = listeners[type] || [];
-        for (const { handler } of handlers.filter(item => item.capture)) handler.call(element, payload);
-        for (const { handler } of handlers.filter(item => !item.capture)) handler.call(element, payload);
+        for (const { handler } of handlers.filter(item => item.capture)) {
+          handler.call(element, payload);
+          if (payload.immediatePropagationStopped) break;
+        }
+        if (!payload.immediatePropagationStopped) {
+          for (const { handler } of handlers.filter(item => !item.capture)) {
+            handler.call(element, payload);
+            if (payload.immediatePropagationStopped) break;
+          }
+        }
         return payload;
       },
       appendChild(child) {

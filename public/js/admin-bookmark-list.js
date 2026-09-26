@@ -427,7 +427,7 @@
       card.addEventListener('click', function (event) {
         if (!selectedCard || event.target.closest('button')) return;
         event.preventDefault();
-        event.stopPropagation();
+        event.stopImmediatePropagation();
         suppressNextCardOpen();
         if (selectedCard === this) {
           cancelSelection();
