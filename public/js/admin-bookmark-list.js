@@ -8,6 +8,9 @@
   const categoryFilter = document.getElementById('categoryFilter');
   const pageSizeSelect = document.getElementById('pageSizeSelect');
   const SEARCH_DEBOUNCE_MS = 300;
+  const LONG_PRESS_MS = 400;
+  const POINTER_MOVE_TOLERANCE_PX = 10;
+  const REORDER_BLOCKED_MESSAGE = '搜索或分类筛选状态下无法调整排序，请清除筛选后重试';
 
   let currentPage = 1;
   let pageSize = 50;
@@ -15,6 +18,7 @@
   let allConfigs = [];
   let currentSearchKeyword = '';
   let currentCategoryFilter = '';
+  let suppressCardClick = false;
 
   function getSearchValue() {
     if (!searchInput) return;
@@ -139,7 +143,12 @@
     card.className = 'site-card group cursor-pointer';
     card.draggable = true;
     card.dataset.id = config.id;
-    card.addEventListener('click', () => {
+    card.addEventListener('click', (event) => {
+      if (suppressCardClick) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       if (normalizedUrl) {
         window.open(normalizedUrl, '_blank', 'noopener,noreferrer');
       }
@@ -277,36 +286,99 @@
   };
 
   function setupDragAndDrop() {
-    const cards = document.querySelectorAll('#configGrid .site-card');
+    const cards = Array.from(document.querySelectorAll('#configGrid .site-card'));
     const reorderBlocked = Boolean(currentSearchKeyword || currentCategoryFilter);
     let draggedItem = null;
+    let pointerId = null;
+    let longPressTimer = null;
+    let startX = 0;
+    let startY = 0;
+    let pointerDragging = false;
+    let pointerOrderChanged = false;
+    let initialOrder = [];
+
+    const clearDropFeedback = () => {
+      cards.forEach(card => card.classList.remove('border-2', 'border-accent-500', 'bookmark-drop-target'));
+    };
+
+    const clearLongPressTimer = () => {
+      if (longPressTimer !== null) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    };
+
+    const releasePointerCapture = card => {
+      if (pointerId === null || !card.hasPointerCapture?.(pointerId)) return;
+      try {
+        card.releasePointerCapture(pointerId);
+      } catch {
+        // 捕获可能已由浏览器释放。
+      }
+    };
+
+    const resetPointerState = (card, suppressClick = false) => {
+      clearLongPressTimer();
+      clearDropFeedback();
+      card?.classList.remove('bookmark-long-press-pending', 'bookmark-pointer-dragging');
+      configGrid.classList.remove('bookmark-reordering');
+      releasePointerCapture(card);
+      if (suppressClick) {
+        suppressCardClick = true;
+        setTimeout(() => {
+          suppressCardClick = false;
+        }, 0);
+      }
+      draggedItem = null;
+      pointerId = null;
+      pointerDragging = false;
+      pointerOrderChanged = false;
+      initialOrder = [];
+    };
+
+    const moveDraggedCard = (card, clientX, clientY) => {
+      const hovered = document.elementFromPoint(clientX, clientY)?.closest?.('#configGrid .site-card');
+      if (!hovered || hovered === card || hovered.parentElement !== configGrid) return;
+
+      clearDropFeedback();
+      hovered.classList.add('border-2', 'border-accent-500', 'bookmark-drop-target');
+      const allCards = Array.from(configGrid.querySelectorAll('.site-card'));
+      const draggedIndex = allCards.indexOf(card);
+      const hoveredIndex = allCards.indexOf(hovered);
+      if (draggedIndex < hoveredIndex) hovered.after(card);
+      else hovered.before(card);
+      pointerOrderChanged = initialOrder.join(',') !== Array.from(configGrid.querySelectorAll('.site-card'), item => item.dataset.id).join(',');
+    };
 
     cards.forEach(card => {
       card.draggable = !reorderBlocked;
-      card.title = reorderBlocked ? '搜索或分类筛选状态下无法安全调整全局排序，请清除筛选后重试' : '';
+      card.title = reorderBlocked ? REORDER_BLOCKED_MESSAGE : '';
 
-      card.addEventListener('dragstart', function (e) {
+      card.addEventListener('dragstart', function (event) {
         if (reorderBlocked) {
-          e.preventDefault();
-          window.showMessage('搜索或分类筛选状态下无法调整排序，请清除筛选后重试', 'error');
+          event.preventDefault();
+          window.showMessage(REORDER_BLOCKED_MESSAGE, 'error');
           return;
         }
 
         draggedItem = this;
+        initialOrder = Array.from(configGrid.querySelectorAll('.site-card'), item => item.dataset.id);
         this.classList.add('opacity-50', 'scale-95');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/html', this.innerHTML);
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', this.dataset.id);
       });
 
       card.addEventListener('dragend', function () {
         this.classList.remove('opacity-50', 'scale-95');
         draggedItem = null;
-        document.querySelectorAll('.site-card').forEach(c => c.classList.remove('border-2', 'border-accent-500'));
+        initialOrder = [];
+        clearDropFeedback();
       });
 
-      card.addEventListener('dragover', function (e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
+      card.addEventListener('dragover', function (event) {
+        if (!draggedItem || reorderBlocked) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
         this.classList.add('border-2', 'border-accent-500');
       });
 
@@ -314,23 +386,71 @@
         this.classList.remove('border-2', 'border-accent-500');
       });
 
-      card.addEventListener('drop', function (e) {
-        e.preventDefault();
-        this.classList.remove('border-2', 'border-accent-500');
+      card.addEventListener('drop', function (event) {
+        event.preventDefault();
+        clearDropFeedback();
+        if (!draggedItem || draggedItem === this) return;
 
-        if (draggedItem !== this) {
-          const allCards = Array.from(configGrid.children);
-          const draggedIdx = allCards.indexOf(draggedItem);
-          const droppedIdx = allCards.indexOf(this);
+        const beforeOrder = initialOrder.join(',');
+        const allCards = Array.from(configGrid.querySelectorAll('.site-card'));
+        if (allCards.indexOf(draggedItem) < allCards.indexOf(this)) this.after(draggedItem);
+        else this.before(draggedItem);
+        const afterOrder = Array.from(configGrid.querySelectorAll('.site-card'), item => item.dataset.id).join(',');
+        if (beforeOrder !== afterOrder) saveSortOrder();
+      });
 
-          if (draggedIdx < droppedIdx) {
-            this.after(draggedItem);
-          } else {
-            this.before(draggedItem);
-          }
-
-          saveSortOrder();
+      card.addEventListener('pointerdown', function (event) {
+        if (event.pointerType === 'mouse' || !event.isPrimary || pointerId !== null) return;
+        if (event.target.closest('button')) return;
+        if (reorderBlocked) {
+          window.showMessage(REORDER_BLOCKED_MESSAGE, 'error');
+          return;
         }
+
+        pointerId = event.pointerId;
+        startX = event.clientX;
+        startY = event.clientY;
+        draggedItem = this;
+        initialOrder = Array.from(configGrid.querySelectorAll('.site-card'), item => item.dataset.id);
+        this.classList.add('bookmark-long-press-pending');
+        longPressTimer = setTimeout(() => {
+          longPressTimer = null;
+          if (pointerId !== event.pointerId || draggedItem !== this) return;
+          pointerDragging = true;
+          this.classList.remove('bookmark-long-press-pending');
+          this.classList.add('bookmark-pointer-dragging');
+          configGrid.classList.add('bookmark-reordering');
+          this.setPointerCapture?.(event.pointerId);
+        }, LONG_PRESS_MS);
+      });
+
+      card.addEventListener('pointermove', function (event) {
+        if (event.pointerId !== pointerId || draggedItem !== this) return;
+        if (!pointerDragging) {
+          if (Math.hypot(event.clientX - startX, event.clientY - startY) > POINTER_MOVE_TOLERANCE_PX) {
+            resetPointerState(this);
+          }
+          return;
+        }
+
+        event.preventDefault();
+        moveDraggedCard(this, event.clientX, event.clientY);
+      });
+
+      card.addEventListener('pointerup', function (event) {
+        if (event.pointerId !== pointerId || draggedItem !== this) return;
+        const shouldSave = pointerDragging && pointerOrderChanged;
+        const shouldSuppressClick = pointerDragging;
+        resetPointerState(this, shouldSuppressClick);
+        if (shouldSave) saveSortOrder();
+      });
+
+      card.addEventListener('pointercancel', function (event) {
+        if (event.pointerId === pointerId && draggedItem === this) resetPointerState(this, pointerDragging);
+      });
+
+      card.addEventListener('lostpointercapture', function (event) {
+        if (event.pointerId === pointerId && draggedItem === this) resetPointerState(this, pointerDragging);
       });
     });
   }

@@ -275,3 +275,34 @@ th {
 tr:nth-child(even) {
   background-color: #f9f9f9;
 }
+
+/* 后台书签触摸长按排序 */
+#configGrid .site-card {
+  touch-action: pan-y;
+}
+
+#configGrid.bookmark-reordering,
+#configGrid.bookmark-reordering .site-card {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#configGrid .site-card.bookmark-long-press-pending {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#configGrid .site-card.bookmark-pointer-dragging {
+  position: relative;
+  z-index: 30;
+  cursor: grabbing;
+  opacity: 0.82;
+  transform: scale(0.97);
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.24);
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+#configGrid .site-card.bookmark-drop-target {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22);
+}
