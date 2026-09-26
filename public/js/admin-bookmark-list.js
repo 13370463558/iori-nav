@@ -333,28 +333,79 @@
       pointerId = null;
       pointerDragging = false;
       pointerOrderChanged = false;
+      pointerDropTarget = null;
       initialOrder = [];
     };
 
-    const moveDraggedCard = (card, clientX, clientY) => {
-      // Pointer capture keeps events on the dragged card, and the card itself may
-      // cover the bookmark underneath. Temporarily ignore it during hit testing.
-      card.classList.add('bookmark-pointer-hit-testing');
-      const hovered = document.elementFromPoint(clientX, clientY)?.closest?.('#configGrid .site-card');
-      card.classList.remove('bookmark-pointer-hit-testing');
-      if (!hovered || hovered === card || hovered.parentElement !== configGrid) {
-        clearDropFeedback();
-        return;
-      }
+    const DROP_TARGET_MAX_DISTANCE_PX = 72;
+    let pointerDropTarget = null;
 
+    const distanceToRect = (clientX, clientY, rect) => {
+      const dx = Math.max(rect.left - clientX, 0, clientX - rect.right);
+      const dy = Math.max(rect.top - clientY, 0, clientY - rect.bottom);
+      return Math.hypot(dx, dy);
+    };
+
+    const findPointerDropTarget = (card, clientX, clientY) => {
+      const candidates = Array.from(configGrid.querySelectorAll('.site-card'))
+        .filter(candidate => candidate !== card && candidate.parentElement === configGrid)
+        .map(candidate => ({ candidate, rect: candidate.getBoundingClientRect() }))
+        .filter(({ rect }) => rect.width > 0 && rect.height > 0);
+
+      const containing = candidates.find(({ rect }) => (
+        clientX >= rect.left && clientX <= rect.right &&
+        clientY >= rect.top && clientY <= rect.bottom
+      ));
+      if (containing) return containing;
+
+      const nearest = candidates
+        .map(entry => ({ ...entry, distance: distanceToRect(clientX, clientY, entry.rect) }))
+        .sort((left, right) => left.distance - right.distance)[0];
+      if (nearest && nearest.distance <= DROP_TARGET_MAX_DISTANCE_PX) return nearest;
+
+      card.classList.add('bookmark-pointer-hit-testing');
+      const elementTarget = document.elementFromPoint(clientX, clientY)?.closest?.('#configGrid .site-card');
+      card.classList.remove('bookmark-pointer-hit-testing');
+      if (!elementTarget || elementTarget === card || elementTarget.parentElement !== configGrid) return null;
+      return { candidate: elementTarget, rect: elementTarget.getBoundingClientRect() };
+    };
+
+    const setPointerDropTarget = target => {
+      if (pointerDropTarget === target) return;
       clearDropFeedback();
-      hovered.classList.add('border-2', 'border-accent-500', 'bookmark-drop-target');
+      pointerDropTarget = target;
+      pointerDropTarget?.classList.add('border-2', 'border-accent-500', 'bookmark-drop-target');
+    };
+
+    const moveDraggedCard = (card, clientX, clientY) => {
+      const match = findPointerDropTarget(card, clientX, clientY);
+      if (!match) return false;
+
+      const { candidate: target, rect } = match;
+      setPointerDropTarget(target);
+
       const allCards = Array.from(configGrid.querySelectorAll('.site-card'));
       const draggedIndex = allCards.indexOf(card);
-      const hoveredIndex = allCards.indexOf(hovered);
-      if (draggedIndex < hoveredIndex) hovered.after(card);
-      else hovered.before(card);
+      const targetIndex = allCards.indexOf(target);
+      const movingForward = draggedIndex < targetIndex;
+      const draggedRect = card.getBoundingClientRect();
+      const draggedCenterX = draggedRect.left + draggedRect.width / 2;
+      const draggedCenterY = draggedRect.top + draggedRect.height / 2;
+      const targetCenterX = rect.left + rect.width / 2;
+      const targetCenterY = rect.top + rect.height / 2;
+      // 卡片通常宽大于高，不能用卡片宽高判断列表方向。
+      // 根据拖动卡片与目标卡片中心点的相对位置判断同排或跨行。
+      const primarilyVertical = Math.abs(targetCenterY - draggedCenterY) >= Math.abs(targetCenterX - draggedCenterX);
+      const crossedCenter = primarilyVertical
+        ? (movingForward ? clientY >= targetCenterY : clientY <= targetCenterY)
+        : (movingForward ? clientX >= targetCenterX : clientX <= targetCenterX);
+
+      if (crossedCenter) {
+        if (movingForward) target.after(card);
+        else target.before(card);
+      }
       pointerOrderChanged = initialOrder.join(',') !== Array.from(configGrid.querySelectorAll('.site-card'), item => item.dataset.id).join(',');
+      return true;
     };
 
     cards.forEach(card => {
@@ -446,6 +497,7 @@
 
       card.addEventListener('pointerup', function (event) {
         if (event.pointerId !== pointerId || draggedItem !== this) return;
+        if (pointerDragging && !pointerDropTarget) moveDraggedCard(this, event.clientX, event.clientY);
         const shouldSave = pointerDragging && pointerOrderChanged;
         const shouldSuppressClick = pointerDragging;
         resetPointerState(this, shouldSuppressClick);

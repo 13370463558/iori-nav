@@ -90,6 +90,16 @@ function createHarness({ filtered = false } = {}) {
       setPointerCapture(id) { element._capture = id; },
       hasPointerCapture(id) { return element._capture === id; },
       releasePointerCapture(id) { if (element._capture === id) element._capture = null; },
+      getBoundingClientRect() {
+        return element._rect || { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
+      },
+      setBoundingClientRect(rect) {
+        element._rect = {
+          ...rect,
+          right: rect.right ?? rect.left + rect.width,
+          bottom: rect.bottom ?? rect.top + rect.height,
+        };
+      },
     };
     element.classList = makeClassList(element);
     let className = '';
@@ -184,6 +194,10 @@ function createHarness({ filtered = false } = {}) {
       categoryFilter.dispatch('change', { target: categoryFilter });
       await flush();
     }
+    configGrid.children.forEach((card, index) => {
+      const top = index * 120;
+      card.setBoundingClientRect({ left: 0, top, width: 240, height: 100 });
+    });
     return configGrid.children;
   }
 
@@ -240,10 +254,10 @@ test('长按拖动到其他卡片时实时调整 DOM 顺序，松手后保存一
   first.dispatch('pointerdown');
   harness.runLongPress();
   harness.setHitTarget(third);
-  first.dispatch('pointermove', { clientX: 30, clientY: 80 });
+  first.dispatch('pointermove', { clientX: 30, clientY: 290 });
 
   assert.deepEqual(harness.configGrid.children.map(card => card.dataset.id), [2, 3, 1]);
-  first.dispatch('pointerup');
+  first.dispatch('pointerup', { clientX: 30, clientY: 290 });
   await harness.flush();
 
   const saves = harness.requests.filter(call => call.url === '/api/config/batch');
@@ -292,8 +306,8 @@ test('分类筛选状态允许触摸长按拖动并携带分类和分页参数',
   first.dispatch('pointerdown');
   harness.runLongPress();
   harness.setHitTarget(third);
-  first.dispatch('pointermove', { clientX: 30, clientY: 80 });
-  first.dispatch('pointerup');
+  first.dispatch('pointermove', { clientX: 30, clientY: 290 });
+  first.dispatch('pointerup', { clientX: 30, clientY: 290 });
   await harness.flush();
 
   const saves = harness.requests.filter(call => call.url === '/api/config/batch');
