@@ -17,7 +17,11 @@
   let allConfigs = [];
   let currentSearchKeyword = '';
   let currentCategoryFilter = '';
-  let suppressCardClick = false;
+  let swapModeActive = false;
+  let swapSourceCard = null;
+  let pendingSwapCard = null;
+  let pendingSwapPointerId = null;
+  let swapLongPressTimer = null;
 
   function getSearchValue() {
     if (!searchInput) return;
@@ -143,9 +147,9 @@
     card.draggable = true;
     card.dataset.id = config.id;
     card.addEventListener('click', (event) => {
-      if (suppressCardClick) {
+      if (swapModeActive) {
         event.preventDefault();
-        event.stopPropagation();
+        event.stopImmediatePropagation();
         return;
       }
       if (normalizedUrl) {
@@ -289,47 +293,51 @@
     const reorderBlocked = Boolean(currentSearchKeyword);
     let draggedItem = null;
     let initialOrder = [];
-    let pendingCard = null;
-    let pendingPointerId = null;
-    let longPressTimer = null;
-    let selectedCard = null;
-    let selectionTimeout = null;
 
     const clearDropFeedback = () => {
       cards.forEach(card => card.classList.remove('border-2', 'border-accent-500'));
     };
 
     const clearPendingPress = () => {
-      if (longPressTimer !== null) clearTimeout(longPressTimer);
-      longPressTimer = null;
-      pendingCard?.classList.remove('bookmark-long-press-pending');
-      pendingCard = null;
-      pendingPointerId = null;
+      if (swapLongPressTimer !== null) clearTimeout(swapLongPressTimer);
+      swapLongPressTimer = null;
+      pendingSwapCard?.classList.remove('bookmark-long-press-pending');
+      pendingSwapCard = null;
+      pendingSwapPointerId = null;
     };
 
-    const cancelSelection = () => {
+    const setSwapSource = card => {
+      swapSourceCard?.classList.remove('bookmark-swap-selected');
+      swapSourceCard = card;
+      swapSourceCard?.classList.add('bookmark-swap-selected');
+    };
+
+    const exitSwapMode = () => {
       clearPendingPress();
-      if (selectionTimeout !== null) clearTimeout(selectionTimeout);
-      selectionTimeout = null;
-      selectedCard?.classList.remove('bookmark-swap-selected');
-      selectedCard = null;
+      setSwapSource(null);
+      swapModeActive = false;
       configGrid.classList.remove('bookmark-swap-active');
+      configGrid.querySelector('.bookmark-swap-exit')?.remove();
     };
 
-    const suppressNextCardOpen = () => {
-      suppressCardClick = true;
-      setTimeout(() => {
-        suppressCardClick = false;
-      }, 0);
-    };
-
-    const selectCard = card => {
-      cancelSelection();
-      selectedCard = card;
-      card.classList.add('bookmark-swap-selected');
+    const enterSwapMode = card => {
+      clearPendingPress();
+      swapModeActive = true;
+      setSwapSource(card);
       configGrid.classList.add('bookmark-swap-active');
-      window.showMessage('已选中，请点击目标书签换位', 'info');
-      selectionTimeout = setTimeout(cancelSelection, 10000);
+      if (!configGrid.querySelector('.bookmark-swap-exit')) {
+        const exitButton = document.createElement('button');
+        exitButton.type = 'button';
+        exitButton.className = 'bookmark-swap-exit col-span-full rounded-lg bg-amber-100 px-4 py-3 text-sm font-medium text-amber-900';
+        exitButton.textContent = '交换模式：请选择目标书签；再次长按或点击此处可退出';
+        exitButton.addEventListener('click', event => {
+          event.preventDefault();
+          event.stopPropagation();
+          exitSwapMode();
+        });
+        configGrid.appendChild(exitButton);
+      }
+      window.showMessage('交换模式：请选择目标书签；再次长按或点击退出可取消', 'info');
     };
 
     const swapCards = (source, target) => {
@@ -356,7 +364,7 @@
           window.showMessage(REORDER_BLOCKED_MESSAGE, 'error');
           return;
         }
-        cancelSelection();
+        if (swapModeActive) exitSwapMode();
         draggedItem = this;
         initialOrder = Array.from(configGrid.querySelectorAll('.site-card'), item => item.dataset.id);
         this.classList.add('opacity-50', 'scale-95');
@@ -395,57 +403,55 @@
       });
 
       card.addEventListener('pointerdown', function (event) {
-        if (event.pointerType === 'mouse' || !event.isPrimary || selectedCard || pendingCard) return;
+        if (event.pointerType === 'mouse' || !event.isPrimary || pendingSwapCard) return;
         if (event.target.closest('button')) return;
         if (reorderBlocked) {
           window.showMessage(REORDER_BLOCKED_MESSAGE, 'error');
           return;
         }
-        pendingCard = this;
-        pendingPointerId = event.pointerId;
+        pendingSwapCard = this;
+        pendingSwapPointerId = event.pointerId;
         this.classList.add('bookmark-long-press-pending');
-        longPressTimer = setTimeout(() => {
-          if (pendingCard !== this || pendingPointerId !== event.pointerId) return;
-          pendingCard = null;
-          pendingPointerId = null;
-          longPressTimer = null;
-          this.classList.remove('bookmark-long-press-pending');
-          selectCard(this);
-          suppressNextCardOpen();
+        swapLongPressTimer = setTimeout(() => {
+          if (pendingSwapCard !== this || pendingSwapPointerId !== event.pointerId) return;
+          const shouldExit = swapModeActive && swapSourceCard === this;
+          clearPendingPress();
+          if (shouldExit) exitSwapMode();
+          else enterSwapMode(this);
         }, LONG_PRESS_MS);
       });
 
       card.addEventListener('pointerup', function (event) {
-        if (pendingCard === this && pendingPointerId === event.pointerId) clearPendingPress();
+        if (pendingSwapCard === this && pendingSwapPointerId === event.pointerId) clearPendingPress();
       });
 
       card.addEventListener('pointercancel', function (event) {
-        if (pendingCard === this && pendingPointerId === event.pointerId) clearPendingPress();
-        cancelSelection();
+        if (pendingSwapCard === this && pendingSwapPointerId === event.pointerId) clearPendingPress();
       });
 
       card.addEventListener('click', function (event) {
-        if (!selectedCard || event.target.closest('button')) return;
+        if (!swapModeActive || event.target.closest('button')) return;
         event.preventDefault();
         event.stopImmediatePropagation();
-        suppressNextCardOpen();
-        if (selectedCard === this) {
-          cancelSelection();
+        if (swapSourceCard === this) return;
+        if (!swapSourceCard) {
+          setSwapSource(this);
           return;
         }
-        const source = selectedCard;
-        cancelSelection();
+        const source = swapSourceCard;
         swapCards(source, this);
+        setSwapSource(this);
         saveSortOrder();
       }, true);
     });
 
     configGrid.addEventListener('click', event => {
-      if (selectedCard && event.target === configGrid) cancelSelection();
+      if (!swapModeActive || event.target !== configGrid) return;
+      event.preventDefault();
     });
 
     document.addEventListener('keydown', event => {
-      if (event.key === 'Escape') cancelSelection();
+      if (event.key === 'Escape' && swapModeActive) exitSwapMode();
     });
   }
 
@@ -484,7 +490,6 @@
         }
 
         window.showMessage('排序已保存', 'success');
-        fetchConfigs();
       })
       .catch(err => {
         window.showMessage('保存排序失败: ' + err.message, 'error');

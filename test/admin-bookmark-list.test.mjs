@@ -94,6 +94,18 @@ function createHarness({ filtered = false } = {}) {
         if (selector === '.site-card') return element.children.filter(child => child.classList.contains('site-card'));
         return [];
       },
+      querySelector(selector) {
+        if (selector === '.bookmark-swap-exit') {
+          return element.children.find(child => child.classList.contains('bookmark-swap-exit')) || null;
+        }
+        return null;
+      },
+      remove() {
+        if (!element.parentElement) return;
+        const index = element.parentElement.children.indexOf(element);
+        if (index >= 0) element.parentElement.children.splice(index, 1);
+        element.parentElement = null;
+      },
       closest(selector) {
         if (selector === 'button') return element.tagName === 'BUTTON' ? element : null;
         if (selector === '#configGrid .site-card') return element.classList.contains('site-card') ? element : null;
@@ -231,7 +243,7 @@ function createHarness({ filtered = false } = {}) {
   };
 }
 
-test('触摸长按 400ms 后选中卡片并显示换位提示', async () => {
+test('触摸长按约 400ms 后进入持久交换模式', async () => {
   const harness = createHarness();
   const [card] = await harness.load();
 
@@ -242,8 +254,9 @@ test('触摸长按 400ms 后选中卡片并显示换位提示', async () => {
   assert.equal(card.classList.contains('bookmark-swap-selected'), true);
   assert.equal(harness.configGrid.classList.contains('bookmark-swap-active'), true);
   assert.equal(card.hasPointerCapture(1), false);
+  assert.ok(harness.configGrid.querySelector('.bookmark-swap-exit'));
   assert.deepEqual(harness.messages.at(-1), {
-    message: '已选中，请点击目标书签换位',
+    message: '交换模式：请选择目标书签；再次长按或点击退出可取消',
     type: 'info',
   });
 });
@@ -259,58 +272,78 @@ test('未达到长按时间时松手不选中也不保存', async () => {
   assert.equal(harness.requests.some(call => call.url === '/api/config/batch'), false);
 });
 
-test('长按选中后点击目标卡片交换位置并只保存一次', async () => {
+test('交换模式保持开启并支持连续交换且每次只保存一次', async () => {
   const harness = createHarness();
   const [first, second, third] = await harness.load();
 
   first.dispatch('pointerdown');
   harness.runLongPress();
   third.dispatch('click');
-  assert.deepEqual(harness.configGrid.children.map(card => card.dataset.id), [3, 2, 1]);
+  second.dispatch('click');
   await harness.flush();
+
+  assert.deepEqual(harness.configGrid.querySelectorAll('.site-card').map(card => Number(card.dataset.id)), [2, 3, 1]);
   const saves = harness.requests.filter(call => call.url === '/api/config/batch');
-  assert.equal(saves.length, 1);
+  assert.equal(saves.length, 2);
   assert.deepEqual(JSON.parse(saves[0].init.body).payload.orderedIds, [3, 2, 1]);
-  assert.equal(first.classList.contains('bookmark-swap-selected'), false);
-  assert.equal(harness.configGrid.classList.contains('bookmark-swap-active'), false);
+  assert.deepEqual(JSON.parse(saves[1].init.body).payload.orderedIds, [2, 3, 1]);
+  assert.equal(harness.configGrid.classList.contains('bookmark-swap-active'), true);
+  assert.equal(second.classList.contains('bookmark-swap-selected'), true);
+  assert.equal(harness.opened.length, 0);
 });
 
-test('再次点击源卡片取消选中且不保存', async () => {
+test('交换模式内点击任意卡片都不打开链接，退出后普通点击恢复打开', async () => {
   const harness = createHarness();
-  const [first] = await harness.load();
+  const [first, second] = await harness.load();
 
   first.dispatch('pointerdown');
   harness.runLongPress();
   first.dispatch('click');
+  second.dispatch('click');
+  assert.equal(harness.opened.length, 0);
 
-  assert.equal(first.classList.contains('bookmark-swap-selected'), false);
-  assert.equal(harness.requests.some(call => call.url === '/api/config/batch'), false);
+  harness.sandbox.document.dispatch('keydown', { key: 'Escape' });
+  second.dispatch('click');
+  assert.equal(harness.opened.length, 1);
+  assert.equal(harness.opened[0][0], 'https://two.example');
 });
 
-test('pointercancel 取消选中且不保存', async () => {
+test('再次长按当前源卡片可退出交换模式', async () => {
   const harness = createHarness();
   const [first] = await harness.load();
 
   first.dispatch('pointerdown');
   harness.runLongPress();
-  first.dispatch('pointercancel');
+  first.dispatch('pointerdown');
+  harness.runLongPress();
 
   assert.equal(first.classList.contains('bookmark-swap-selected'), false);
+  assert.equal(harness.configGrid.classList.contains('bookmark-swap-active'), false);
+  assert.equal(harness.configGrid.querySelector('.bookmark-swap-exit'), null);
   assert.equal(harness.requests.some(call => call.url === '/api/config/batch'), false);
 });
 
-test('点击列表空白处取消选中', async () => {
-  const harness = createHarness();
-  const [first] = await harness.load();
+test('常驻退出按钮和 Escape 都可退出且退出按钮不属于书签列表', async () => {
+  const buttonHarness = createHarness();
+  const [buttonCard] = await buttonHarness.load();
+  buttonCard.dispatch('pointerdown');
+  buttonHarness.runLongPress();
+  const exitButton = buttonHarness.configGrid.querySelector('.bookmark-swap-exit');
+  assert.ok(exitButton);
+  assert.equal(exitButton.classList.contains('site-card'), false);
+  exitButton.dispatch('click');
+  assert.equal(buttonHarness.configGrid.classList.contains('bookmark-swap-active'), false);
 
-  first.dispatch('pointerdown');
-  harness.runLongPress();
-  harness.configGrid.dispatch('click', { target: harness.configGrid });
-
-  assert.equal(first.classList.contains('bookmark-swap-selected'), false);
+  const escapeHarness = createHarness();
+  const [escapeCard] = await escapeHarness.load();
+  escapeCard.dispatch('pointerdown');
+  escapeHarness.runLongPress();
+  escapeHarness.sandbox.document.dispatch('keydown', { key: 'Escape' });
+  assert.equal(escapeCard.classList.contains('bookmark-swap-selected'), false);
+  assert.equal(escapeHarness.configGrid.classList.contains('bookmark-swap-active'), false);
 });
 
-test('选中状态下点击编辑删除按钮不触发换位', async () => {
+test('编辑删除按钮在交换模式内不交换也不打开链接', async () => {
   const harness = createHarness();
   const [first, second] = await harness.load();
   const button = harness.sandbox.document.createElement('button');
@@ -319,39 +352,10 @@ test('选中状态下点击编辑删除按钮不触发换位', async () => {
   harness.runLongPress();
   second.dispatch('click', { target: button });
 
-  assert.deepEqual(harness.configGrid.children.map(card => card.dataset.id), [1, 2, 3]);
+  assert.deepEqual(harness.configGrid.querySelectorAll('.site-card').map(card => Number(card.dataset.id)), [1, 2, 3]);
   assert.equal(harness.requests.some(call => call.url === '/api/config/batch'), false);
-  assert.equal(first.classList.contains('bookmark-swap-selected'), true);
-});
-
-test('成功换位后紧随的卡片点击不打开链接', async () => {
-  const harness = createHarness();
-  const [first, second] = await harness.load();
-
-  first.dispatch('pointerdown');
-  harness.runLongPress();
-  second.dispatch('click');
-
   assert.equal(harness.opened.length, 0);
-});
-
-
-test('取消键和选中超时都会清理选中状态', async () => {
-  const escapeHarness = createHarness();
-  const [escapeCard] = await escapeHarness.load();
-  escapeCard.dispatch('pointerdown');
-  escapeHarness.runLongPress();
-  escapeHarness.sandbox.document.dispatch('keydown', { key: 'Escape' });
-  assert.equal(escapeCard.classList.contains('bookmark-swap-selected'), false);
-
-  const timeoutHarness = createHarness();
-  const [timeoutCard] = await timeoutHarness.load();
-  timeoutCard.dispatch('pointerdown');
-  timeoutHarness.runLongPress();
-  const timeout = timeoutHarness.timers.find(item => item.delay === 10000 && !item.cleared);
-  assert.ok(timeout, '应创建选中超时计时器');
-  timeout.fn();
-  assert.equal(timeoutCard.classList.contains('bookmark-swap-selected'), false);
+  assert.equal(first.classList.contains('bookmark-swap-selected'), true);
 });
 
 test('搜索状态禁止触摸换位和桌面拖拽排序', async () => {
