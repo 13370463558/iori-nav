@@ -303,6 +303,12 @@ tr:nth-child(even) {
   outline-offset: 2px;
 }
 
+#configGrid .site-card.bookmark-pointer-hit-testing {
+  pointer-events: none;
+}
+
 #configGrid .site-card.bookmark-drop-target {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22);
+  outline: 3px solid #3b82f6;
+  outline-offset: 3px;
 }

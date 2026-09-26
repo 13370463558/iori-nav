@@ -320,7 +320,7 @@
     const resetPointerState = (card, suppressClick = false) => {
       clearLongPressTimer();
       clearDropFeedback();
-      card?.classList.remove('bookmark-long-press-pending', 'bookmark-pointer-dragging');
+      card?.classList.remove('bookmark-long-press-pending', 'bookmark-pointer-dragging', 'bookmark-pointer-hit-testing');
       configGrid.classList.remove('bookmark-reordering');
       releasePointerCapture(card);
       if (suppressClick) {
@@ -337,8 +337,15 @@
     };
 
     const moveDraggedCard = (card, clientX, clientY) => {
+      // Pointer capture keeps events on the dragged card, and the card itself may
+      // cover the bookmark underneath. Temporarily ignore it during hit testing.
+      card.classList.add('bookmark-pointer-hit-testing');
       const hovered = document.elementFromPoint(clientX, clientY)?.closest?.('#configGrid .site-card');
-      if (!hovered || hovered === card || hovered.parentElement !== configGrid) return;
+      card.classList.remove('bookmark-pointer-hit-testing');
+      if (!hovered || hovered === card || hovered.parentElement !== configGrid) {
+        clearDropFeedback();
+        return;
+      }
 
       clearDropFeedback();
       hovered.classList.add('border-2', 'border-accent-500', 'bookmark-drop-target');
